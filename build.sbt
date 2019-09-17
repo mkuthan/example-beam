@@ -35,6 +35,7 @@ lazy val customScalacOptions = Seq(
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
+  "-Ywarn-unused",
   "-Ywarn-unused-import"
 )
 
