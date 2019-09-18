@@ -35,7 +35,70 @@ import org.apache.beam.sdk.values.KV
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
 
+/**
+ * Slowly-changing lookup cache from unbounded source using various side input strategies.
+ * Unbounded lookup cache consists of incremental changes,
+ * the final lookup cache state has to be built from observed changes.
+ *
+ * Please refer to:
+ * https://cloud.google.com/blog/products/gcp/guide-to-common-cloud-dataflow-use-case-patterns-part-1
+ *
+ */
+object SideInputExamples {
+
+  type LookupMap = Map[Int, Option[String]]
+
+  def generateLookupStream(accumulationMode: AccumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES)
+    (implicit sc: ScioContext): SCollection[LookupMap] =
+    sc.customInput(
+      "generateLookupStream",
+      GenerateSequence
+        .from(0)
+        .withRate(1, Duration.standardSeconds(5))
+    ).withGlobalWindow(
+      options = WindowOptions(
+        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
+        accumulationMode = accumulationMode
+      )
+    ).map(i =>
+      i.toInt
+    ).map[LookupMap] {
+      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c")) // initial map
+      case 1 => Map(4 -> Some("z")) // new element
+      case 2 => Map(1 -> Some("x")) // updated element
+      case 3 => Map(2 -> None) // removed element
+      case _ => Map() // empty element to ignore
+    }
+
+  def generateMainStream()
+    (implicit sc: ScioContext): SCollection[Int] =
+    sc.customInput(
+      "generateMainStream",
+      GenerateSequence
+        .from(0)
+        .withRate(1, Duration.standardSeconds(1))
+    ).withGlobalWindow(
+      options = WindowOptions(
+        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
+        accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES
+      )
+    ).map(i =>
+      i.toInt
+    )
+
+  def joinMainStreamWithSideInput(mainStream: SCollection[Int], sideInput: SideInput[_]): SCollection[String] =
+    mainStream
+      .withSideInputs(sideInput)
+      .map {
+        case (i, side) =>
+          val lookup = side(sideInput)
+          s"$i: $lookup"
+      }.toSCollection
+}
+
 object SideInputWithStatefulDoFnExample {
+
+  // As expected lookup cache is fully re-build from incremental changes.
 
   //  joinedStream: 0: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
   //  joinedStream: 1: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
@@ -65,6 +128,7 @@ object SideInputWithStatefulDoFnExample {
     implicit val (sc, args) = ContextAndArgs(cmdlineArgs)
     sc.optionsAs[StreamingOptions].setStreaming(true)
 
+    // past lookups are discarded, there is a dedicated stateful DoFn for keeping the state
     val lookupStream = generateLookupStream(AccumulationMode.DISCARDING_FIRED_PANES)
     val mainStream = generateMainStream()
 
@@ -109,6 +173,8 @@ object SideInputWithStatefulDoFnExample {
 
 object SideInputAsMultiMapExample {
 
+  // Lookup cache contains elements from all incremental changes, not easy to consume.
+
   //  joinedStream: 0: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
   //  joinedStream: 1: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
   //  joinedStream: 2: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
@@ -150,6 +216,8 @@ object SideInputAsMultiMapExample {
 }
 
 object SideInputAsMapExample {
+
+  // Apache Beam does not support retractions, elements in MapSideInput could not be updated.
 
   //  Exception in thread "main" org.apache.beam.sdk.Pipeline$PipelineExecutionException: java.lang.IllegalArgumentException: Duplicate values for 1
   //  at org.apache.beam.runners.direct.DirectRunner$DirectPipelineResult.waitUntilFinish(DirectRunner.java:348)
@@ -239,56 +307,4 @@ object SideInputAsSingletonExample {
 
     sc.run()
   }
-}
-
-object SideInputExamples {
-
-  type LookupMap = Map[Int, Option[String]]
-
-  def generateLookupStream(accumulationMode: AccumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES)
-    (implicit sc: ScioContext): SCollection[LookupMap] =
-    sc.customInput(
-      "generateLookupStream",
-      GenerateSequence
-        .from(0)
-        .withRate(1, Duration.standardSeconds(5))
-    ).withGlobalWindow(
-      options = WindowOptions(
-        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
-        accumulationMode = accumulationMode
-      )
-    ).map(i =>
-      i.toInt
-    ).map[LookupMap] {
-      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c")) // initial map
-      case 1 => Map(4 -> Some("z")) // new lookup
-      case 2 => Map(1 -> Some("x")) // updated lookup
-      case 3 => Map(2 -> None) // removed lookup
-      case _ => Map() // empty lookup
-    }
-
-  def generateMainStream()
-    (implicit sc: ScioContext): SCollection[Int] =
-    sc.customInput(
-      "generateMainStream",
-      GenerateSequence
-        .from(0)
-        .withRate(1, Duration.standardSeconds(1))
-    ).withGlobalWindow(
-      options = WindowOptions(
-        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
-        accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES
-      )
-    ).map(i =>
-      i.toInt
-    )
-
-  def joinMainStreamWithSideInput(mainStream: SCollection[Int], sideInput: SideInput[_]): SCollection[String] =
-    mainStream
-      .withSideInputs(sideInput)
-      .map {
-        case (elem, side) =>
-          val lookup = side(sideInput)
-          s"$elem: $lookup"
-      }.toSCollection
 }
