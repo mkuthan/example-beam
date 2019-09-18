@@ -24,6 +24,7 @@ import com.spotify.scio.values.SideInput
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.io.GenerateSequence
 import org.apache.beam.sdk.options.StreamingOptions
+import org.apache.beam.sdk.state.BagState
 import org.apache.beam.sdk.state.StateSpecs
 import org.apache.beam.sdk.state.ValueState
 import org.apache.beam.sdk.transforms.DoFn
@@ -55,11 +56,11 @@ object SideInputExamples {
     ).map(i =>
       i.toInt
     ).map[LookupMap] {
-      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c"))
-      case 1 => Map(4 -> Some("z"))
-      case 2 => Map(1 -> Some("x"))
-      case 3 => Map(2 -> None)
-      case _ => Map()
+      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c")) // initial map
+      case 1 => Map(4 -> Some("z")) // new lookup
+      case 2 => Map(1 -> Some("x")) // updated lookup
+      case 3 => Map(2 -> None) // removed lookup
+      case _ => Map() // empty lookup
     }
 
   def generateMainStream()
@@ -119,11 +120,11 @@ object SideInputWithStatefulDoFnExample {
     val lookupStream = generateLookupStream(AccumulationMode.DISCARDING_FIRED_PANES)
     val mainStream = generateMainStream()
 
-    val lookupStreamByFakeKey = lookupStream
-      .map(lookupMap => KV.of[String, LookupMap]("any key", lookupMap))
+    val lookupStreamByFakeKey = lookupStream.map(lookupMap => ("", lookupMap))
 
-    val lookupSideInput = lookupStreamByFakeKey.applyTransform(ParDo.of(new CacheDoFn))
-      .flatMap(kv => kv.getValue.seq)
+    val lookupSideInput = lookupStreamByFakeKey
+      .applyPerKeyDoFn(new CacheDoFn)
+      .flatMap { case (k, v) => v.seq }
       .asMapSideInput
 
     val joinedStream = joinMainStreamWithSideInput(mainStream, lookupSideInput)
@@ -144,9 +145,12 @@ object SideInputWithStatefulDoFnExample {
         @StateId("cache") cacheState: ValueState[LookupMap]
     ): Unit = {
       val lookupMap = context.element().getValue
+      val lookupMapCache = Option(cacheState.read()).getOrElse(Map())
 
-      val lookupMapCache = cacheState.read()
-      val finalLookupMap = lookupMapCache ++ lookupMap
+      val combinedLookupMap = lookupMapCache ++ lookupMap
+      val finalLookupMap = combinedLookupMap.filter { case (_, value) =>
+        value.isDefined
+      }
 
       cacheState.write(finalLookupMap)
       context.output(KV.of(context.element().getKey, finalLookupMap))
