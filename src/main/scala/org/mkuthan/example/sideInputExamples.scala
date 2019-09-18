@@ -24,92 +24,40 @@ import com.spotify.scio.values.SideInput
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.io.GenerateSequence
 import org.apache.beam.sdk.options.StreamingOptions
-import org.apache.beam.sdk.state.BagState
 import org.apache.beam.sdk.state.StateSpecs
 import org.apache.beam.sdk.state.ValueState
 import org.apache.beam.sdk.transforms.DoFn
 import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms.DoFn.StateId
-import org.apache.beam.sdk.transforms.ParDo
 import org.apache.beam.sdk.transforms.windowing.AfterPane
 import org.apache.beam.sdk.transforms.windowing.Repeatedly
 import org.apache.beam.sdk.values.KV
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
 
-object SideInputExamples {
-
-  type LookupMap = Map[Int, Option[String]]
-
-  def generateLookupStream(accumulationMode: AccumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES)
-    (implicit sc: ScioContext): SCollection[LookupMap] =
-    sc.customInput(
-      "generateLookupStream",
-      GenerateSequence
-        .from(0)
-        .withRate(1, Duration.standardSeconds(5))
-    ).withGlobalWindow(
-      options = WindowOptions(
-        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
-        accumulationMode = accumulationMode
-      )
-    ).map(i =>
-      i.toInt
-    ).map[LookupMap] {
-      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c")) // initial map
-      case 1 => Map(4 -> Some("z")) // new lookup
-      case 2 => Map(1 -> Some("x")) // updated lookup
-      case 3 => Map(2 -> None) // removed lookup
-      case _ => Map() // empty lookup
-    }
-
-  def generateMainStream()
-    (implicit sc: ScioContext): SCollection[Int] =
-    sc.customInput(
-      "generateMainStream",
-      GenerateSequence
-        .from(0)
-        .withRate(1, Duration.standardSeconds(1))
-    ).withGlobalWindow(
-      options = WindowOptions(
-        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
-        accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES
-      )
-    ).map(i =>
-      i.toInt
-    )
-
-  def joinMainStreamWithSideInput(mainStream: SCollection[Int], sideInput: SideInput[_]): SCollection[String] =
-    mainStream
-      .withSideInputs(sideInput)
-      .map {
-        case (elem, side) =>
-          val lookup = side(sideInput)
-          s"$elem: $lookup"
-      }.toSCollection
-}
-
-object SideInputAsMultiMapExample {
-
-  import SideInputExamples._
-
-  def main(cmdlineArgs: Array[String]): Unit = {
-    implicit val (sc, args) = ContextAndArgs(cmdlineArgs)
-    sc.optionsAs[StreamingOptions].setStreaming(true)
-
-    val lookupStream = generateLookupStream()
-    val mainStream = generateMainStream()
-
-    val lookupSideInput = lookupStream.flatMap(_.seq).asMultiMapSideInput
-
-    val joinedStream = joinMainStreamWithSideInput(mainStream, lookupSideInput)
-    joinedStream.debug(prefix = "joinedStream: ")
-
-    sc.run()
-  }
-}
-
 object SideInputWithStatefulDoFnExample {
+
+  //  joinedStream: 0: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 1: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 2: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 3: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 4: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 5: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c))
+  //  joinedStream: 6: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 7: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 8: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 9: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 10: Map(1 -> Some(a), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 11: Map(1 -> Some(x), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 12: Map(1 -> Some(x), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 13: Map(1 -> Some(x), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 14: Map(1 -> Some(x), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 15: Map(1 -> Some(x), 2 -> Some(b), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 16: Map(1 -> Some(x), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 17: Map(1 -> Some(x), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 18: Map(1 -> Some(x), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 19: Map(1 -> Some(x), 3 -> Some(c), 4 -> Some(z))
+  //  joinedStream: 20: Map(1 -> Some(x), 3 -> Some(c), 4 -> Some(z))
 
   import SideInputExamples._
 
@@ -157,6 +105,48 @@ object SideInputWithStatefulDoFnExample {
     }
   }
 
+}
+
+object SideInputAsMultiMapExample {
+
+  //  joinedStream: 0: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 1: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 2: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 3: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 4: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 5: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)))
+  //  joinedStream: 6: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 7: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 8: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 9: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 10: Map(1 -> Wrappers.JIterableWrapper(Some(a)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 11: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 12: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 13: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 14: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 15: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b)), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 16: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b), None), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 17: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b), None), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 18: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b), None), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 19: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b), None), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+  //  joinedStream: 20: Map(1 -> Wrappers.JIterableWrapper(Some(a), Some(x)), 2 -> Wrappers.JIterableWrapper(Some(b), None), 3 -> Wrappers.JIterableWrapper(Some(c)), 4 -> Wrappers.JIterableWrapper(Some(z)))
+
+  import SideInputExamples._
+
+  def main(cmdlineArgs: Array[String]): Unit = {
+    implicit val (sc, args) = ContextAndArgs(cmdlineArgs)
+    sc.optionsAs[StreamingOptions].setStreaming(true)
+
+    val lookupStream = generateLookupStream()
+    val mainStream = generateMainStream()
+
+    val lookupSideInput = lookupStream.flatMap(_.seq).asMultiMapSideInput
+
+    val joinedStream = joinMainStreamWithSideInput(mainStream, lookupSideInput)
+    joinedStream.debug(prefix = "joinedStream: ")
+
+    sc.run()
+  }
 }
 
 object SideInputAsMapExample {
@@ -249,4 +239,56 @@ object SideInputAsSingletonExample {
 
     sc.run()
   }
+}
+
+object SideInputExamples {
+
+  type LookupMap = Map[Int, Option[String]]
+
+  def generateLookupStream(accumulationMode: AccumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES)
+    (implicit sc: ScioContext): SCollection[LookupMap] =
+    sc.customInput(
+      "generateLookupStream",
+      GenerateSequence
+        .from(0)
+        .withRate(1, Duration.standardSeconds(5))
+    ).withGlobalWindow(
+      options = WindowOptions(
+        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
+        accumulationMode = accumulationMode
+      )
+    ).map(i =>
+      i.toInt
+    ).map[LookupMap] {
+      case 0 => Map(1 -> Some("a"), 2 -> Some("b"), 3 -> Some("c")) // initial map
+      case 1 => Map(4 -> Some("z")) // new lookup
+      case 2 => Map(1 -> Some("x")) // updated lookup
+      case 3 => Map(2 -> None) // removed lookup
+      case _ => Map() // empty lookup
+    }
+
+  def generateMainStream()
+    (implicit sc: ScioContext): SCollection[Int] =
+    sc.customInput(
+      "generateMainStream",
+      GenerateSequence
+        .from(0)
+        .withRate(1, Duration.standardSeconds(1))
+    ).withGlobalWindow(
+      options = WindowOptions(
+        trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
+        accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES
+      )
+    ).map(i =>
+      i.toInt
+    )
+
+  def joinMainStreamWithSideInput(mainStream: SCollection[Int], sideInput: SideInput[_]): SCollection[String] =
+    mainStream
+      .withSideInputs(sideInput)
+      .map {
+        case (elem, side) =>
+          val lookup = side(sideInput)
+          s"$elem: $lookup"
+      }.toSCollection
 }
