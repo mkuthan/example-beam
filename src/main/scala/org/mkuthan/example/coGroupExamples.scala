@@ -19,11 +19,11 @@ package org.mkuthan.example
 import com.spotify.scio._
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.coders.CoderMaterializer
+import com.spotify.scio.metrics.Metrics
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.io.GenerateSequence
 import org.apache.beam.sdk.metrics.Counter
-import org.apache.beam.sdk.metrics.Metrics
 import org.apache.beam.sdk.options.StreamingOptions
 import org.apache.beam.sdk.state.StateSpecs
 import org.apache.beam.sdk.state.TimeDomain
@@ -40,8 +40,6 @@ import org.apache.beam.sdk.transforms.windowing.Repeatedly
 import org.apache.beam.sdk.values.KV
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
-import org.joda.time.Instant
-import org.mkuthan.example.CoGroupExample.FooDoFn.FooDoFnType
 
 /**
  * Slowly-changing lookup cache from unbounded source using CoGroupByKey strategy.
@@ -69,7 +67,6 @@ object CoGroupExamples {
   def loadInitialLookup()
     (implicit sc: ScioContext): SCollection[(Key, Lookup)] = {
     sc.parallelize(InitialLookupValues)
-      .timestampBy(_ => Instant.now())
       .withGlobalWindow(options = WindowOptions(
         trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
         accumulationMode = LookupAccumulationMode
@@ -93,7 +90,7 @@ object CoGroupExamples {
       )
     ).map { i =>
       2L -> s"X$i"
-    }.timestampBy(_ => Instant.now())
+    }
 
   /**
    * Main stream of data (e.g published on PubSub)
@@ -113,7 +110,7 @@ object CoGroupExamples {
     ).map { i =>
       val key = i % 5
       key -> s"$i"
-    }.timestampBy(_ => Instant.now())
+    }
 }
 
 object CoGroupExample {
@@ -126,11 +123,8 @@ object CoGroupExample {
 
     val initialLookup = loadInitialLookup()
 
-    // past lookups are discarded, there is a dedicated stateful DoFn for keeping the state
     val lookupStream = generateLookupStream()
     val finalLookupStream = initialLookup.union(lookupStream)
-
-    // finalLookupStream.debug()
 
     val mainStream = generateMainStream()
 
@@ -138,54 +132,71 @@ object CoGroupExample {
     val finalStream = mainStream
       .cogroup(finalLookupStream)
       .map { case (key, value) => key -> value }
-      .applyPerKeyDoFn(new FooDoFn(Duration.standardMinutes(10)))
+      .applyPerKeyDoFn(new SideInputCacheDoFn(Duration.standardMinutes(10)))
 
     finalStream.debug()
 
     sc.run()
   }
 
-  // TODO: better name
-  object FooDoFn {
-    type FooDoFnType[K, V, SideInput] = DoFn[KV[K, (Iterable[V], Iterable[SideInput])],
-      KV[K, Iterable[(V, Option[SideInput])]]]
+  type SideInputCacheDoFnType[K, V, SideInput] = DoFn[KV[K, (Iterable[V], Iterable[SideInput])],
+    KV[K, Iterable[(V, Option[SideInput])]]]
 
+  object SideInputCacheDoFn {
     final val CacheKey = "cache"
     final val ExpiryKey = "expiry"
-    final val MetricNamespace = getClass.getName
   }
 
-  // TODO: better name
-  class FooDoFn[K, V, SideInput](allowedLateness: Duration)
-    (implicit c: Coder[SideInput]) extends FooDoFnType[K, V, SideInput] {
+  class SideInputCacheDoFn[K, V, SideInput](allowedLateness: Duration)
+    (implicit c: Coder[SideInput]) extends SideInputCacheDoFnType[K, V, SideInput] {
 
-    import FooDoFn._
+    import SideInputCacheDoFn._
 
     @StateId(CacheKey) private val cacheSpecs = StateSpecs.value[SideInput](
       CoderMaterializer.beamWithDefault(Coder[SideInput]))
 
-    // TODO: move to EVENT_TIME
     @TimerId(ExpiryKey) private val expirySpec = TimerSpecs.timer(TimeDomain.PROCESSING_TIME)
 
-    private val cachedCounter: Counter = Metrics.counter(MetricNamespace, "cached")
+    private val cachedCounter: Counter = ScioMetrics.counter("cached")
 
-    private val expiredCounter: Counter = Metrics.counter(MetricNamespace, "expired")
+    private val expiredCounter: Counter = ScioMetrics.counter("expired")
 
     @ProcessElement
     def processElement(
-        context: FooDoFnType[K, V, SideInput]#ProcessContext,
+        context: SideInputCacheDoFnType[K, V, SideInput]#ProcessContext,
         @StateId(CacheKey) cacheState: ValueState[SideInput],
         @TimerId(ExpiryKey) expiryTimer: Timer
     ): Unit = {
       val key = context.element().getKey
       val (values, sideInputs) = context.element().getValue
 
+      cacheSideInputs(sideInputs, cacheState, expiryTimer)
+      outputWithSideInput(key, values, context, cacheState)
+    }
+
+    @OnTimer(ExpiryKey)
+    def onExpiry(@StateId(CacheKey) cacheState: ValueState[SideInput]): Unit = {
+      cacheState.clear()
+      expiredCounter.inc()
+    }
+
+    private def cacheSideInputs(
+        sideInputs: Iterable[SideInput],
+        cacheState: ValueState[SideInput],
+        expiryTimer: Timer
+    ) =
       sideInputs.lastOption.foreach { sideInput =>
         cacheState.write(sideInput)
         expiryTimer.offset(allowedLateness).setRelative()
         cachedCounter.inc()
       }
 
+    private def outputWithSideInput(
+        key: K,
+        values: Iterable[V],
+        context: SideInputCacheDoFnType[K, V, SideInput]#ProcessContext,
+        cacheState: ValueState[SideInput]
+    ) = {
       if (!values.isEmpty) {
         val sideInput = Option(cacheState.read())
 
@@ -197,11 +208,6 @@ object CoGroupExample {
       }
     }
 
-    @OnTimer(ExpiryKey)
-    def onExpiry(@StateId(CacheKey) cacheState: ValueState[SideInput]): Unit = {
-      expiredCounter.inc()
-      cacheState.clear()
-    }
   }
 
 }
