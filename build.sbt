@@ -15,28 +15,34 @@
 // limitations under the License.
 
 lazy val beamVersion = "2.15.0"
-lazy val scioVersion = "0.8.0-beta1"
+lazy val scioVersion = "0.8.0-SNAPSHOT"
 
 lazy val commonSettings = Seq(
-  name := "example-beam",
+  name := "beam-examples",
   version := "1.0",
   organization := "http://mkuthan.github.io/",
   scalaVersion := "2.12.10"
 )
 
+// https://tpolecat.github.io/2017/04/25/scalac-flags.html
 lazy val customScalacOptions = Seq(
-  "-deprecation",
-  "-encoding", "UTF-8",
-  "-feature",
-  "-unchecked",
-  "-Xfatal-warnings",
-  "-Xfuture",
+  "-deprecation", // Emit warning and location for usages of deprecated APIs.
+  "-encoding", "UTF-8", // Specify character encoding used by source files.
+  "-explaintypes", // Explain type errors in more detail.
+  "-feature", // Emit warning and location for usages of features that should be imported explicitly.
+  "-unchecked", // Enable additional warnings where generated code depends on assumptions.
   "-Xlint",
-  "-Yno-adapted-args",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
+  "-Yno-adapted-args", // Do not adapt an argument list to match the receiver.
+  "-Ypartial-unification", // Enable partial unification in type constructor inference
+  "-Ywarn-dead-code", // Warn when dead code is identified.
+  "-Ywarn-extra-implicit", // Warn when more than one implicit parameter section is defined.
+  "-Ywarn-inaccessible", // Warn about inaccessible types in method signatures.
+  "-Ywarn-infer-any", // Warn when a type argument is inferred to be `Any`.
+  "-Ywarn-nullary-override", // Warn when non-nullary `def f()' overrides nullary `def f'.
+  "-Ywarn-nullary-unit", // Warn when nullary methods return Unit.
+  "-Ywarn-numeric-widen", // Warn when numerics are widened.
   "-Ywarn-unused",
-  "-Ywarn-unused-import"
+  "-Ywarn-value-discard" // Warn when non-Unit expression results are unused.
 )
 
 lazy val customLibraryDependencies = Seq(
@@ -70,6 +76,7 @@ lazy val root = (project in file("."))
   .settings(fork in run := true)
   .settings(connectInput in run := true)
   .settings(javaOptions in run ++= customJavaOptions)
+  .settings(resolvers += Resolver.sonatypeRepo("snapshots"))
   .settings(
     scalastyleFailOnError := true,
     compileScalastyle := scalastyle.in(Compile).toTask("").value,

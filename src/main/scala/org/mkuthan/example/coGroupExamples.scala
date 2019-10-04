@@ -19,7 +19,6 @@ package org.mkuthan.example
 import com.spotify.scio._
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.coders.CoderMaterializer
-import com.spotify.scio.metrics.Metrics
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.io.GenerateSequence
