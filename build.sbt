@@ -49,6 +49,8 @@ lazy val customLibraryDependencies = Seq(
   "org.apache.beam" % "beam-runners-direct-java" % beamVersion,
 
   "com.spotify" %% "scio-core" % scioVersion,
+  "com.spotify" %% "scio-bigquery" % scioVersion,
+
   "com.spotify" %% "scio-test" % scioVersion % Test,
 
   "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -77,6 +79,7 @@ lazy val root = (project in file("."))
   .settings(connectInput in run := true)
   .settings(javaOptions in run ++= customJavaOptions)
   .settings(resolvers += Resolver.sonatypeRepo("snapshots"))
+  .settings(addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full))
   .settings(
     scalastyleFailOnError := true,
     compileScalastyle := scalastyle.in(Compile).toTask("").value,
