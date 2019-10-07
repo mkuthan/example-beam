@@ -45,7 +45,7 @@ object UnboundedJoinBounded {
     val booksSubscription = args.required("booksSubscription")
     val booksDetailsTopic = args.required("booksDetailsTopic")
 
-    val authors = sc.typedBigQuery[Author](authorsTable)
+    val authors = sc.typedBigQuery[Author](Table.Spec(authorsTable))
     val authorsSideInput = authors
       .map { author =>
         author.id -> author
