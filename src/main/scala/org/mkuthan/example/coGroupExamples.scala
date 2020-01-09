@@ -59,7 +59,6 @@ object CoGroupExamples {
   type Value = String
   type Lookup = String
 
-
   /**
    * Initial lookup data (e.g loaded once from BigQuery) used when streaming job is started.
    */
@@ -126,7 +125,6 @@ object CoGroupExample {
     val finalLookupStream = initialLookup.union(lookupStream)
 
     val mainStream = generateMainStream()
-
 
     val finalStream = mainStream
       .cogroup(finalLookupStream)
@@ -210,4 +208,3 @@ object CoGroupExample {
   }
 
 }
-

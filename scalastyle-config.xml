@@ -6,7 +6,7 @@
     </parameters>
   </check>
 
-  <check class="org.scalastyle.file.FileLineLengthChecker" level="error" enabled="true">
+  <check class="org.scalastyle.file.FileLineLengthChecker" level="warn" enabled="true">
     <parameters>
       <parameter name="maxLineLength">120</parameter>
       <parameter name="tabSize">2</parameter>

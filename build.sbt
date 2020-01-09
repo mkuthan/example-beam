@@ -14,8 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-lazy val beamVersion = "2.15.0"
-lazy val scioVersion = "0.8.0-SNAPSHOT"
+lazy val beamVersion = "2.17.0"
+lazy val scioVersion = "0.8.0"
 
 lazy val commonSettings = Seq(
   name := "beam-examples",
