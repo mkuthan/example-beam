@@ -34,25 +34,25 @@ class TimestampAttributeExampleTest extends PipelineSpec {
 
   private val baseTime = new JInstant(0)
 
-  private val anyEvent = Event("id1", at(1 second))
-  private val anyAttributes = Map(Event.IdAttribute -> anyEvent.id, Event.TimestampAttribute -> anyEvent.ts.toString())
-
-  type Attributes = Map[String, String]
+  private val anyEvent = Event("id1", baseTime)
 
   "Timestamp" should "be propagated from subscription to output topic" in {
+
+    val event1 = Event("id1", at(10 second))
+    val event2 = Event("id2", at(20 seconds))
 
     JobTest[TimestampAttributeExamples.type]
       .args(
         s"--$EventsSubscriptionConf=$eventsSubscription",
         s"--$OutputTopicConf=$outputTopic")
       .inputStream(
-        PubsubIO.withAttributes[Event](
+        PubsubIO.readCoder[Event](
           eventsSubscription,
           idAttribute = Event.IdAttribute,
           timestampAttribute = Event.TimestampAttribute),
-        testStreamOf[(Event, Attributes)]
+        testStreamOf[Event]
           .advanceWatermarkTo(baseTime)
-          .addElements(eventAt((anyEvent, anyAttributes), 1 second))
+          .addElements(event1, event2)
           .advanceWatermarkToInfinity())
       .output(
         PubsubIO.withAttributes[Event](
@@ -60,7 +60,8 @@ class TimestampAttributeExampleTest extends PipelineSpec {
           idAttribute = Event.IdAttribute,
           timestampAttribute = Event.TimestampAttribute)) { events =>
         events should containInAnyOrder(Seq(
-          (anyEvent, Map(Event.IdAttribute -> "newId", Event.TimestampAttribute -> new JInstant(10).toString()))
+          (event1, event1.toAttributes()),
+          (event2, event2.toAttributes()),
         ))
       }
       .run()
@@ -69,6 +70,6 @@ class TimestampAttributeExampleTest extends PipelineSpec {
   private def at(duration: Duration): JInstant =
     baseTime.plus(JDuration.millis(duration.toMillis))
 
-  private def eventAt(e: (Event, Attributes), duration: Duration): TimestampedValue[(Event, Attributes)] =
+  private def eventAt(e: Event, duration: Duration): TimestampedValue[Event] =
     TimestampedValue.of(e, at(duration))
 }

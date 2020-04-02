@@ -22,7 +22,9 @@ import org.joda.time.Instant
 
 object TimestampAttributeExamples {
 
-  case class Event(id: String, ts: Instant)
+  case class Event(id: String, ts: Instant) {
+    def toAttributes(): Map[String, String] = Map(Event.IdAttribute -> id, Event.TimestampAttribute -> ts.toString())
+  }
 
   object Event {
     val IdAttribute = "id"
@@ -40,16 +42,14 @@ object TimestampAttributeExamples {
     val eventsSubscription = args.required(EventsSubscriptionConf)
     val outputTopic = args.required(OutputTopicConf)
 
-    val events = sc.pubsubSubscriptionWithAttributes[Event](
+    val events = sc.pubsubSubscription[Event](
       eventsSubscription,
       idAttribute = Event.IdAttribute, timestampAttribute = Event.TimestampAttribute)
 
-    // identity mapping for testing purposes
-    val output = events.map { case (event, attributes) =>
-      (Event(event.id, event.ts), Map(Event.IdAttribute -> "newId", Event.TimestampAttribute -> new Instant(10).toString()))
+    val output = events.map { event =>
+      (Event(event.id, event.ts), event.toAttributes())
     }
 
-    output.debug()
     output.saveAsPubsub(outputTopic, idAttribute = Event.IdAttribute, timestampAttribute = Event.TimestampAttribute)
 
     sc.run()
