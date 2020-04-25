@@ -8,10 +8,10 @@ cache:
 language: scala
 
 scala:
-  - 2.12.10
+  - 2.13.2
 
 jdk:
-  - oraclejdk8
+  - openjdk11
 
 script:
   - sbt clean test scalastyle
