@@ -31,8 +31,6 @@ object AdCtrFixedWindowCalculator {
       window: Duration = DefaultFixedWindowDuration,
       allowedLateness: Duration = Duration.ZERO
   ): SCollection[AdCtr] = {
-    implicit val adCtrSemigroup = new AdCtrSemigroup
-
     val windowOptions = WindowOptions(
       allowedLateness = allowedLateness,
       trigger = AfterWatermark
@@ -43,22 +41,29 @@ object AdCtrFixedWindowCalculator {
       accumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES
     )
 
-    adEvents
+    val adCtrsByScreen = adEvents
+      .withName("Key AdEvent by AdId/ScreenId")
+      .keyBy { adEvent => (adEvent.id, adEvent.screenId) }
       .withName("Prepare initial AdCtr from AdEvent")
-      .map { adEvent =>
-        adEvent.action match {
-          case AdAction.Click => AdCtr.click(adEvent.id)
-          case AdAction.Impression => AdCtr.impression(adEvent.id)
-          case _ => AdCtr.unknown(adEvent.id)
-        }
-      }
-      .withName("Key AdCtr by AdId")
-      .keyBy { adCtr => adCtr.id }
+      .mapValues { adEvent => AdCtr.fromAdEvent(adEvent) }
       .withName(s"Apply fixed window of $window and allowed lateness $allowedLateness")
       .withFixedWindows(duration = window, options = windowOptions)
-      .withName("Calculate CTR")
-      .sumByKey
+      .withName("Calculate CTR per ScreenId")
+      .sumByKey(AdCtrCappedSemigroup)
+      .withName("Discard AdId/ScreenId key")
+      .values
+
+    // adCtrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "by screen: ")
+
+    val adCtrs = adCtrsByScreen.withName("Key AdEvent by AdId")
+      .keyBy { adCtr => adCtr.id }
+      .withName("Calculate total CTR")
+      .sumByKey(AdCtrTotalSemigroup)
       .withName("Discard AdId key")
       .values
+
+    // adCtrs.withPaneInfo.withTimestamp.debug(prefix = "total: ")
+
+    adCtrs
   }
 }

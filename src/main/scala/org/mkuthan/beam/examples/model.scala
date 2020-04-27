@@ -35,13 +35,15 @@ object AdAction extends Enumeration {
 
 case class AdEvent(id: AdId, screenId: ScreenId, action: AdAction.AdAction)
 
-case class AdCtr(id: AdId, clicks: Int, impressions: Int) {
-  def ctr(): PartialFunction[AdCtr, Double] = {
-    case adCtr: AdCtr if adCtr.impressions != 0 => adCtr.clicks.toDouble / adCtr.impressions.toDouble
-  }
-}
+case class AdCtr(id: AdId, clicks: Int, impressions: Int)
 
 object AdCtr {
+
+  def fromAdEvent(adEvent: AdEvent): AdCtr = adEvent.action match {
+    case AdAction.Click => AdCtr.click(adEvent.id)
+    case AdAction.Impression => AdCtr.impression(adEvent.id)
+    case _ => AdCtr.unknown(adEvent.id)
+  }
 
   def click(id: AdId): AdCtr = new AdCtr(id, clicks = 1, impressions = 0)
 
@@ -50,13 +52,26 @@ object AdCtr {
   def unknown(id: AdId): AdCtr = new AdCtr(id, clicks = 0, impressions = 0)
 }
 
-class AdCtrSemigroup extends Semigroup[AdCtr] {
+object AdCtrCappedSemigroup extends Semigroup[AdCtr] {
+  override def plus(adCtr1: AdCtr, adCtr2: AdCtr): AdCtr = {
+    require(adCtr1.id == adCtr2.id)
+
+    AdCtr(
+      adCtr1.id,
+      Math.min(1, adCtr1.clicks + adCtr2.clicks),
+      Math.min(1, adCtr1.impressions + adCtr2.impressions)
+    )
+  }
+}
+
+object AdCtrTotalSemigroup extends Semigroup[AdCtr] {
   override def plus(adCtr1: AdCtr, adCtr2: AdCtr): AdCtr = {
     require(adCtr1.id == adCtr2.id)
 
     AdCtr(
       adCtr1.id,
       adCtr1.clicks + adCtr2.clicks,
-      adCtr1.impressions + adCtr2.impressions)
+      adCtr1.impressions + adCtr2.impressions
+    )
   }
 }
