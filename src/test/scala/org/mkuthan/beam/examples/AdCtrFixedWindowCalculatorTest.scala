@@ -119,6 +119,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
     }
 
     // TODO: missing assertion that late pane is empty
+    // https://github.com/spotify/scio/pull/2921
   }
 
   "Impression on-time and late click but in allowed lateness" should "give ctr 0.0 in on-time pane and 1.0 in on-final pane" in runWithContext { sc =>
@@ -135,7 +136,8 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
       containSingleValue(endOfWindow, ctrZero)
     }
 
-    // inLatePane or inFinalPane? BTW. inLatePanel has not been implemented in Scio yet
+    // TODO: inFinalPane is not fully precise, inLatePane would be better
+    // https://github.com/spotify/scio/pull/2921
     ctrs should inFinalPane(beginOfWindow, endOfWindow) {
       containSingleValue(endOfWindow, ctrOne)
     }

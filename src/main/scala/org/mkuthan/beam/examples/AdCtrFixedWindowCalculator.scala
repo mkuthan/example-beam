@@ -51,9 +51,11 @@ object AdCtrFixedWindowCalculator {
       .withName("Calculate CTR per ScreenId")
       .sumByKey(AdCtrCappedSemigroup)
       .withName("Discard AdId/ScreenId key")
+      // TODO: use mapKeys
+      // https://github.com/spotify/scio/pull/2922
       .map { case ((_, screenId), ctr) => (screenId, ctr) }
 
-    // adCtrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "ctr by screen: ")
+    // ctrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "ctr by screen: ")
 
     ctrsByScreen
   }

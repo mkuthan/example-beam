@@ -1,6 +1,4 @@
-# Apache Beam example
-
-[![Build Status](https://travis-ci.org/mkuthan/example-beam.svg?branch=master)](https://travis-ci.org/mkuthan/example-beam) 
+# Apache Beam examples
 
 Playground for [Apache Beam](https://beam.apache.org) and [Scio](https://github.com/spotify/scio) experiments.
 
