@@ -28,9 +28,7 @@ object TestImplicits {
       builder.advanceWatermarkTo(stringToInstant(time))
 
     def addElementsAtTime(time: String, elements: T*): TestStream.Builder[T] = {
-      val timestampedElements = elements.map { element =>
-        TimestampedValue.of(element, stringToInstant(time))
-      }
+      val timestampedElements = elements.map { element => TimestampedValue.of(element, stringToInstant(time)) }
       builder.addElements(timestampedElements.head, timestampedElements.tail: _*)
     }
   }
