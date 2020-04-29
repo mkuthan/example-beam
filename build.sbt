@@ -89,9 +89,6 @@ lazy val customJavaOptions = Seq(
   "-XX:-MaxFDLimit"
 )
 
-lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
-lazy val testScalastyle = taskKey[Unit]("testScalastyle")
-
 lazy val root = (project in file("."))
   .settings(commonSettings)
   .settings(scalacOptions ++= customScalacOptions)
@@ -100,9 +97,3 @@ lazy val root = (project in file("."))
   .settings(fork in run := true)
   .settings(connectInput in run := true)
   .settings(javaOptions in run ++= customJavaOptions)
-  .settings(
-    scalastyleFailOnError := true,
-    compileScalastyle := scalastyle.in(Compile).toTask("").value,
-    (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value,
-    testScalastyle := scalastyle.in(Test).toTask("").value,
-    (test in Test) := ((test in Test) dependsOn testScalastyle).value)

@@ -36,7 +36,7 @@ trait TimestampedMatchers {
   def inFinalPane[T: ClassTag](begin: String, end: String)(matcher: MatcherBuilder[T]): Matcher[T] =
     inFinalPane(new IntervalWindow(stringToInstant(begin), stringToInstant(end)))(matcher)
 
-  def containSingleValue[T: Coder : Eq](
+  def containSingleValue[T: Coder: Eq](
       time: String,
       value: T
   ): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] = {

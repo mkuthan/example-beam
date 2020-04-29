@@ -43,9 +43,9 @@ case class AdCtr(id: AdId, clicks: Int, impressions: Int)
 object AdCtr {
 
   def fromAdEvent(adEvent: AdEvent): AdCtr = adEvent.action match {
-    case AdAction.Click => AdCtr.click(adEvent.id)
+    case AdAction.Click      => AdCtr.click(adEvent.id)
     case AdAction.Impression => AdCtr.impression(adEvent.id)
-    case _ => AdCtr.unknown(adEvent.id)
+    case _                   => AdCtr.unknown(adEvent.id)
   }
 
   def click(id: AdId): AdCtr = new AdCtr(id, clicks = 1, impressions = 0)
