@@ -12,18 +12,30 @@ Ad impressions and clicks joined in the fixed window:
 Pros:
 
 * Built-in support for the fixed window.
-* Built-in support for late events.
+* Built-in support for late Ad events.
 
 Cons:
 
 * High latency, CTR is always emitted at the end of window.
-* An incomplete CTR for events on the windows boundaries.
+* An incomplete CTR for events on the windows boundaries (e.g 11:59:00 and 12:00:00).
 
-## Join in fixed window with "impressions repeater"
+## Join in fixed window with "repeater"
 
-Stay tuned
+Ad events enriched by Screen event in the fixed window, Screen events are repeated to simulate longer window on the right side of the join:
 
-## Join in global window with "impressions cache"
+* [AdEventFixedWindowWithRepeaterEnricher](src/main/scala/org/mkuthan/beam/examples/AdEventFixedWindowWithRepeaterEnricher.scala)
+* [AdEventFixedWindowWithRepeaterEnricherTest](src/test/scala/org/mkuthan/beam/examples/AdEventFixedWindowWithRepeaterEnricherTest.scala)
+
+Pros:
+
+* Built-in support for the fixed window.
+* Built-in support for late Ad and Screen events (TODO: tests).
+* Window duration for Screen events is longer than for Ad Events events effectively (Screen events are repeated).
+
+Cons:
+* Medium latency, enriched Ad Event is always emitted at the end of window.
+
+## Join in global window with "cache"
 
 Stay tuned
 

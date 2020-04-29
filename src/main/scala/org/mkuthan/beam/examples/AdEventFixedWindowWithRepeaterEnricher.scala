@@ -19,6 +19,7 @@ package org.mkuthan.beam.examples
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.coders.CoderMaterializer
 import com.spotify.scio.values.SCollection
+import com.spotify.scio.values.SideOutput
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.state.StateSpecs
 import org.apache.beam.sdk.state.TimeDomain
@@ -41,17 +42,18 @@ import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
 import org.joda.time.Instant
 
-object AdCtrFixedWindowWithRepeaterCalculator {
+object AdEventFixedWindowWithRepeaterEnricher {
 
   val DefaultFixedWindowDuration = Duration.standardMinutes(10)
-  val DefaultImpressionsTtlDuration = Duration.standardMinutes(20)
+  val DefaultScreenTtlDuration = Duration.standardMinutes(10)
 
-  def calculateCtrByScreen(
+  def enrichByScreen(
       adEvents: SCollection[AdEvent],
+      screens: SCollection[Screen],
       window: Duration = DefaultFixedWindowDuration,
-      impressionsTtl: Duration = DefaultImpressionsTtlDuration,
+      screenTtl: Duration = DefaultScreenTtlDuration,
       allowedLateness: Duration = Duration.ZERO
-  ): SCollection[(ScreenId, AdCtr)] = {
+  ): (SCollection[(AdEvent, Screen)], SCollection[AdEvent]) = {
     val windowOptions = WindowOptions(
       allowedLateness = allowedLateness,
       trigger = AfterWatermark
@@ -62,34 +64,39 @@ object AdCtrFixedWindowWithRepeaterCalculator {
       accumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES
     )
 
-    val adEventsByScreen = adEvents
-      .withName("Key AdEvent by AdId/ScreenId")
-      .keyBy { adEvent => (adEvent.id, adEvent.screenId) }
-
-    val repeatedImpressionEvents = adEventsByScreen
-      .filterValues { adEvent => adEvent.isImpression }
-      .applyPerKeyDoFn(new RepeatDoFn(window, impressionsTtl))
-
-    val clickEvents = adEventsByScreen
-      .filterValues { adEvent => adEvent.isClick }
-
-    val ctrsByScreen = SCollection
-      .unionAll(Seq(repeatedImpressionEvents, clickEvents))
-      .withName("Prepare initial AdCtr from AdEvent")
-      .mapValues { adEvent => AdCtr.fromAdEvent(adEvent) }
-      .withName(s"Apply fixed window of $window and allowed lateness $allowedLateness")
+    val adEventsByScreenId = adEvents
+      .withName("Key AdEvent by ScreenId")
+      .keyBy { adEvent => adEvent.screenId }
+      .withName(s"Apply fixed window on AdEvent of $window and allowed lateness $allowedLateness")
       .withFixedWindows(duration = window, options = windowOptions)
-      .withName("Calculate CTR per ScreenId")
-      .sumByKey(AdCtrCappedSemigroup)
-      .withName("Discard AdId/ScreenId key")
-      // TODO: use mapKeys
-      // https://github.com/spotify/scio/pull/2922
-      .map { case ((_, screenId), ctr) => (screenId, ctr) }
 
-    // ctrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "ctr by screen: ")
+    val screenByScreenId = screens
+      .withName("Key Screen by ScreenId")
+      .keyBy { screen => screen.id }
+      .applyPerKeyDoFn(new RepeatDoFn(window, screenTtl))
+      .withName(s"Apply fixed window on Screen of $window and allowed lateness $allowedLateness")
+      .withFixedWindows(duration = window, options = windowOptions)
 
-    ctrsByScreen
+    val adEventsAndScreen = adEventsByScreenId
+      .withName("Join AdEvent with Screen")
+      .leftOuterJoin(screenByScreenId)
+      .withName("Discard ScreenId join key")
+      .values
 
+    val adEventsWithoutScreen = SideOutput[AdEvent]()
+
+    val (adEventsEnriched, sideOutputs) = adEventsAndScreen
+      .withSideOutputs(adEventsWithoutScreen)
+      .withName("Discard AdEvent without Screen")
+      .flatMap {
+        case (adEventAndScreen, ctx) =>
+          adEventAndScreen match {
+            case (adEvent, Some(screen)) => Some((adEvent, screen))
+            case (adEvent, None)         => ctx.output(adEventsWithoutScreen, adEvent); None
+          }
+      }
+
+    (adEventsEnriched, sideOutputs(adEventsWithoutScreen))
   }
 }
 
@@ -135,8 +142,8 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
   @OnTimer(IntervalKey)
   def onTriggerInterval(
       @Timestamp timestamp: Instant,
-      @StateId(CacheKey) cacheState: ValueState[KV[K, V]],
-      @StateId(LastSeenKey) lastSeenState: ValueState[Instant],
+      @AlwaysFetched @StateId(CacheKey) cacheState: ValueState[KV[K, V]],
+      @AlwaysFetched @StateId(LastSeenKey) lastSeenState: ValueState[Instant],
       @TimerId(IntervalKey) timer: Timer,
       receiver: OutputReceiver[KV[K, V]]
   ): Unit = {
