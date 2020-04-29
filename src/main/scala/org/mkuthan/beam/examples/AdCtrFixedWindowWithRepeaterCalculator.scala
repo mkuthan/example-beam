@@ -73,7 +73,8 @@ object AdCtrFixedWindowWithRepeaterCalculator {
     val clickEvents = adEventsByScreen
       .filterValues { adEvent => adEvent.isClick }
 
-    val ctrsByScreen = SCollection.unionAll(Seq(repeatedImpressionEvents, clickEvents))
+    val ctrsByScreen = SCollection
+      .unionAll(Seq(repeatedImpressionEvents, clickEvents))
       .withName("Prepare initial AdCtr from AdEvent")
       .mapValues { adEvent => AdCtr.fromAdEvent(adEvent) }
       .withName(s"Apply fixed window of $window and allowed lateness $allowedLateness")
@@ -103,10 +104,12 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
   import RepeatDoFn._
 
   // noinspection ScalaUnusedSymbol
-  @StateId(CacheKey) private val cacheSpec = StateSpecs.value[KV[K, V]](CoderMaterializer.beamWithDefault(Coder[KV[K, V]]))
+  @StateId(CacheKey) private val cacheSpec =
+    StateSpecs.value[KV[K, V]](CoderMaterializer.beamWithDefault(Coder[KV[K, V]]))
 
   // noinspection ScalaUnusedSymbol
-  @StateId(LastSeenKey) private val lastSeenSpec = StateSpecs.value[Instant](CoderMaterializer.beamWithDefault(Coder[Instant]))
+  @StateId(LastSeenKey) private val lastSeenSpec =
+    StateSpecs.value[Instant](CoderMaterializer.beamWithDefault(Coder[Instant]))
 
   // noinspection ScalaUnusedSymbol
   @TimerId(IntervalKey) private val triggerIntervalSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME)

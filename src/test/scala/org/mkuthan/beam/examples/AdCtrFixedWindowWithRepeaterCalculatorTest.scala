@@ -65,7 +65,6 @@ class AdCtrFixedWindowWithRepeaterCalculatorTest extends PipelineSpec with Times
     }
   }
 
-
   "Click and then impression on-time" should "give ctr 1.0" in runWithContext { sc =>
     val adEvents = testStreamOf[AdEvent]
       .addElementsAtTime("12:01:00", anyClick)
@@ -105,22 +104,23 @@ class AdCtrFixedWindowWithRepeaterCalculatorTest extends PipelineSpec with Times
     }
   }
 
-  "Impression on-time but click out-of-window" should "give ctr 0.0 in impression window and undefined in click window" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyImpression)
-      .advanceWatermarkTo(endOfSecondWindow)
-      .addElementsAtTime("12:31:00", anyClick)
-      .advanceWatermarkToInfinity()
+  "Impression on-time but click out-of-window" should "give ctr 0.0 in impression window and undefined in click window" in runWithContext {
+    sc =>
+      val adEvents = testStreamOf[AdEvent]
+        .addElementsAtTime("12:01:00", anyImpression)
+        .advanceWatermarkTo(endOfSecondWindow)
+        .addElementsAtTime("12:31:00", anyClick)
+        .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+      val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValue(endOfWindow, ctrZero)
-    }
+      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValue(endOfWindow, ctrZero)
+      }
 
-    ctrs should inOnTimePane(beginOfThirdWindow, endOfThirdWindow) {
-      containSingleValue(endOfThirdWindow, ctrUndefined)
-    }
+      ctrs should inOnTimePane(beginOfThirdWindow, endOfThirdWindow) {
+        containSingleValue(endOfThirdWindow, ctrUndefined)
+      }
   }
 
   "Impression on-time and late click" should "give ctr 0.0" in runWithContext { sc =>
@@ -136,47 +136,48 @@ class AdCtrFixedWindowWithRepeaterCalculatorTest extends PipelineSpec with Times
       containSingleValue(endOfWindow, ctrZero)
     }
 
-    // TODO: missing assertion that late pane is empty
-    // https://github.com/spotify/scio/pull/2921
+  // TODO: missing assertion that late pane is empty
+  // https://github.com/spotify/scio/pull/2921
   }
 
-  "Impression on-time and late click but in allowed lateness" should "give ctr 0.0 in on-time pane and 1.0 in on-final pane" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyImpression)
-      .advanceWatermarkTo(endOfWindow)
-      .addElementsAtTime("12:09:00", anyClick)
-      .advanceWatermarkToInfinity()
+  "Impression on-time and late click but in allowed lateness" should "give ctr 0.0 in on-time pane and 1.0 in on-final pane" in runWithContext {
+    sc =>
+      val adEvents = testStreamOf[AdEvent]
+        .addElementsAtTime("12:01:00", anyImpression)
+        .advanceWatermarkTo(endOfWindow)
+        .addElementsAtTime("12:09:00", anyClick)
+        .advanceWatermarkToInfinity()
 
-    val allowedLateness = Duration.standardMinutes(2)
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents), allowedLateness = allowedLateness).withTimestamp
+      val allowedLateness = Duration.standardMinutes(2)
+      val ctrs = calculateCtrByScreen(sc.testStream(adEvents), allowedLateness = allowedLateness).withTimestamp
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValue(endOfWindow, ctrZero)
-    }
+      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValue(endOfWindow, ctrZero)
+      }
 
-    // TODO: inFinalPane is not fully precise, inLatePane would be better
-    // https://github.com/spotify/scio/pull/2921
-    ctrs should inFinalPane(beginOfWindow, endOfWindow) {
-      containSingleValue(endOfWindow, ctrOne)
-    }
+      // TODO: inFinalPane is not fully precise, inLatePane would be better
+      // https://github.com/spotify/scio/pull/2921
+      ctrs should inFinalPane(beginOfWindow, endOfWindow) {
+        containSingleValue(endOfWindow, ctrOne)
+      }
   }
 
-  "Impression just before click but out-of-window" should "give ctr 0.0 for impression window and then ctr 1.0 for the click window due to repeated impression" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:09:59", anyImpression)
-      .addElementsAtTime("12:10:00", anyClick)
+  "Impression just before click but out-of-window" should "give ctr 0.0 for impression window and then ctr 1.0 for the click window due to repeated impression" in runWithContext {
+    sc =>
+      val adEvents = testStreamOf[AdEvent]
+        .addElementsAtTime("12:09:59", anyImpression)
+        .addElementsAtTime("12:10:00", anyClick)
+        .advanceWatermarkToInfinity()
 
-      .advanceWatermarkToInfinity()
+      val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValue(endOfWindow, ctrZero)
+      }
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValue(endOfWindow, ctrZero)
-    }
-
-    ctrs should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
-      containSingleValue(endOfSecondWindow, ctrOne)
-    }
+      ctrs should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
+        containSingleValue(endOfSecondWindow, ctrOne)
+      }
   }
 
 }
