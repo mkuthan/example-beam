@@ -16,31 +16,13 @@
 
 package org.mkuthan.beam.examples
 
-import com.spotify.scio.coders.Coder
-import com.spotify.scio.coders.CoderMaterializer
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.values.SideOutput
 import com.spotify.scio.values.WindowOptions
-import org.apache.beam.sdk.state.StateSpecs
-import org.apache.beam.sdk.state.TimeDomain
-import org.apache.beam.sdk.state.Timer
-import org.apache.beam.sdk.state.TimerSpecs
-import org.apache.beam.sdk.state.ValueState
-import org.apache.beam.sdk.transforms.DoFn
-import org.apache.beam.sdk.transforms.DoFn.AlwaysFetched
-import org.apache.beam.sdk.transforms.DoFn.Element
-import org.apache.beam.sdk.transforms.DoFn.OnTimer
-import org.apache.beam.sdk.transforms.DoFn.OutputReceiver
-import org.apache.beam.sdk.transforms.DoFn.ProcessElement
-import org.apache.beam.sdk.transforms.DoFn.StateId
-import org.apache.beam.sdk.transforms.DoFn.TimerId
-import org.apache.beam.sdk.transforms.DoFn.Timestamp
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark
-import org.apache.beam.sdk.values.KV
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
-import org.joda.time.Instant
 
 object AdEventFixedWindowWithRepeaterEnricher {
 
@@ -73,6 +55,7 @@ object AdEventFixedWindowWithRepeaterEnricher {
     val screenByScreenId = screens
       .withName("Key Screen by ScreenId")
       .keyBy { screen => screen.id }
+      .withName(s"Repeat Screen on every $window for $screenTtl")
       .applyPerKeyDoFn(new RepeatDoFn(window, screenTtl))
       .withName(s"Apply fixed window on Screen of $window and allowed lateness $allowedLateness")
       .withFixedWindows(duration = window, options = windowOptions)
@@ -97,66 +80,5 @@ object AdEventFixedWindowWithRepeaterEnricher {
       }
 
     (adEventsEnriched, sideOutputs(adEventsWithoutScreen))
-  }
-}
-
-object RepeatDoFn {
-  final val CacheKey = "cache"
-  final val LastSeenKey = "lastSeen"
-  final val IntervalKey = "interval"
-}
-
-class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V], KV[K, V]] {
-
-  import RepeatDoFn._
-
-  // noinspection ScalaUnusedSymbol
-  @StateId(CacheKey) private val cacheSpec =
-    StateSpecs.value[KV[K, V]](CoderMaterializer.beamWithDefault(Coder[KV[K, V]]))
-
-  // noinspection ScalaUnusedSymbol
-  @StateId(LastSeenKey) private val lastSeenSpec =
-    StateSpecs.value[Instant](CoderMaterializer.beamWithDefault(Coder[Instant]))
-
-  // noinspection ScalaUnusedSymbol
-  @TimerId(IntervalKey) private val triggerIntervalSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME)
-
-  @ProcessElement
-  def processElement(
-      @Timestamp timestamp: Instant,
-      @Element element: KV[K, V],
-      @AlwaysFetched @StateId(CacheKey) cacheState: ValueState[KV[K, V]],
-      @AlwaysFetched @StateId(LastSeenKey) lastSeenState: ValueState[Instant],
-      @TimerId(IntervalKey) timer: Timer,
-      receiver: OutputReceiver[KV[K, V]]
-  ): Unit = {
-    if (Option(cacheState.read()).isEmpty) {
-      timer.set(timestamp.plus(interval))
-      receiver.output(element)
-    }
-
-    cacheState.write(element)
-    lastSeenState.write(timestamp)
-  }
-
-  @OnTimer(IntervalKey)
-  def onTriggerInterval(
-      @Timestamp timestamp: Instant,
-      @AlwaysFetched @StateId(CacheKey) cacheState: ValueState[KV[K, V]],
-      @AlwaysFetched @StateId(LastSeenKey) lastSeenState: ValueState[Instant],
-      @TimerId(IntervalKey) timer: Timer,
-      receiver: OutputReceiver[KV[K, V]]
-  ): Unit = {
-    Option(cacheState.read()).foreach { kv =>
-      receiver.output(kv)
-      Option(lastSeenState.read()).foreach { lastSeen =>
-        if (timestamp.isBefore(lastSeen.plus(ttl))) {
-          timer.set(timestamp.plus(interval))
-        } else {
-          cacheState.clear()
-          lastSeenState.clear()
-        }
-      }
-    }
   }
 }
