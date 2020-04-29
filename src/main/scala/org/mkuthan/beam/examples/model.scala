@@ -33,7 +33,10 @@ object AdAction extends Enumeration {
   val Click, Impression, Unknown = Value
 }
 
-case class AdEvent(id: AdId, screenId: ScreenId, action: AdAction.AdAction)
+case class AdEvent(id: AdId, screenId: ScreenId, action: AdAction.AdAction) {
+  lazy val isImpression: Boolean = action == AdAction.Impression
+  lazy val isClick: Boolean = action == AdAction.Click
+}
 
 case class AdCtr(id: AdId, clicks: Int, impressions: Int)
 
