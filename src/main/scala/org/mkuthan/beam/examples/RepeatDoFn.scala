@@ -18,6 +18,7 @@ package org.mkuthan.beam.examples
 
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.coders.CoderMaterializer
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.beam.sdk.state.StateSpecs
 import org.apache.beam.sdk.state.TimeDomain
 import org.apache.beam.sdk.state.Timer
@@ -42,7 +43,7 @@ object RepeatDoFn {
   final val IntervalKey = "Interval"
 }
 
-class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V], KV[K, V]] {
+class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V], KV[K, V]] with LazyLogging {
 
   import RepeatDoFn._
 
@@ -66,10 +67,12 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
       @TimerId(IntervalKey) timer: Timer,
       receiver: OutputReceiver[KV[K, V]]
   ): Unit = {
+    logger.debug("Process: {}, {}", timestamp, element)
+
     // if elements hasn't been seen before
     if (Option(cacheState.read()).isEmpty) {
       // initial emission
-      receiver.outputWithTimestamp(element, timestamp)
+      outputValue(timestamp, element, receiver)
       // schedule repeated emission
       timer.set(timestamp.plus(interval))
     }
@@ -89,9 +92,11 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
       @TimerId(IntervalKey) timer: Timer,
       receiver: OutputReceiver[KV[K, V]]
   ): Unit = {
+    logger.debug("TriggerTimer: {}", timestamp)
+
     Option(cacheState.read()).foreach { element =>
       // repeated emission
-      receiver.outputWithTimestamp(element, timestamp)
+      outputValue(timestamp, element, receiver)
 
       Option(lastSeenState.read()).foreach { lastSeen =>
         if (timestamp.isBefore(lastSeen.plus(ttl))) {
@@ -104,5 +109,10 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
         }
       }
     }
+  }
+
+  private def outputValue(timestamp: Instant, element: KV[K, V], receiver: OutputReceiver[KV[K, V]]): Unit = {
+    logger.debug("Output: {}, {}", timestamp, element)
+    receiver.outputWithTimestamp(element, timestamp)
   }
 }

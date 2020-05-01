@@ -17,11 +17,12 @@
 package org.mkuthan.beam.examples
 
 trait ModelFixtures {
-  val anyClientId = ClientId("any client id")
-  val anyClient = Client(anyClientId, "any client name")
+  val anyPublicationId = PublicationId("any client id")
+  val anyPublicationVersion = "any publication version"
+  val anyPublication = Publication(anyPublicationId, anyPublicationVersion)
 
   val anyScreenId = ScreenId("any screen id")
-  val anyScreen = Screen(anyScreenId, anyClientId, "any screen name")
+  val anyScreen = Screen(anyScreenId, anyPublicationId)
 
   val anyAdId = AdId("any ad id")
   val anyAdEvent = AdEvent(anyAdId, anyScreenId, AdAction.Unknown)

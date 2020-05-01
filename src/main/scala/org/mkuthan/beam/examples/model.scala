@@ -18,26 +18,56 @@ package org.mkuthan.beam.examples
 
 import com.twitter.algebird.Semigroup
 
-case class ClientId(id: String) extends AnyVal
-
-case class Client(id: ClientId, name: String)
-
+case class PublicationId(id: String) extends AnyVal
 case class ScreenId(id: String) extends AnyVal
-
-case class Screen(id: ScreenId, clientId: ClientId, name: String)
-
 case class AdId(id: String) extends AnyVal
 
+/**
+  * Screen publication, defines all screen details known when the screen is published.
+  * Publication is emitted when screen editor changes what should be presented on the Screen.
+  *
+  * @param id unique publication identifier
+  * @param version publication version
+  */
+case class Publication(id: PublicationId, version: String)
+
+/**
+  * Screen is emitted by mobile application when new screen is presented.
+  * Many Screen events are typically emitted during client journey in the mobile application, join with Publication for publication details.
+  *
+  * @param id unique screen identifier
+  * @param publicationId screen publication identifier
+  */
+case class Screen(id: ScreenId, publicationId: PublicationId)
+
+/**
+  * Ad event action type.
+  */
 object AdAction extends Enumeration {
   type AdAction = Value
   val Click, Impression, Unknown = Value
 }
 
+/**
+  * Ad event is emitted for every client interaction with Ad presented on the mobile application screens.
+  * Many Ad events are typically emitted on single screen, join with Screen for screen details.
+  *
+  * @param id unique Ad identifier
+  * @param screenId screen identifier
+  * @param action client action
+  */
 case class AdEvent(id: AdId, screenId: ScreenId, action: AdAction.AdAction) {
   lazy val isImpression: Boolean = action == AdAction.Impression
   lazy val isClick: Boolean = action == AdAction.Click
 }
 
+/**
+  * Ad CTR (Click Through Rate) metric.
+  *
+  * @param id unique Ad identifier
+  * @param clicks number of Ad click events
+  * @param impressions number of Ad impression events
+  */
 case class AdCtr(id: AdId, clicks: Int, impressions: Int)
 
 object AdCtr {

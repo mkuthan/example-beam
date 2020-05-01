@@ -23,11 +23,11 @@ Cons:
 * High latency, CTR is always emitted at the end of window. 
 CTR could be emitted when matched click is observed with the click event time.
 * Higher resource utilization.
-Ad events are kept in the state until end of the window. 
+Ad events are kept in the state until end of the window.
 If CTR was emitted earlier the resources would be released.
 * An incomplete CTR for events close to the windows boundaries.
-If the click is very close to the impression but in different windows the CTR will not be calculated correctly
-(e.g impression at 11:59:00 and click at 12:00:00 for 10 minutes or 1 hour window).
+If the click is very close to the impression but in a different window the CTR will not be calculated correctly
+(e.g impression at 11:59:00 and click at 12:00:00 for 10 minutes window).
 
 ## Join in fixed window with "repeater"
 
@@ -50,10 +50,22 @@ Cons:
 * Medium latency, enriched Ad Event is always emitted at the end of window.
 But the window might be quite short because Screen events are repeated.
 * Higher resource utilization, the Screen events must be cached. 
-But the frequency of Screen events are typically much lower than Ad events so 
+But the frequency of Screen events are typically much lower than Ad events, so 
 the negative performance/cost impact should be negligible.
 
 ## Join in global window with "cache"
 
-Stay tuned
+Screen events enriched by Publication event in global window, Publication events are cached and expired to simulate finite window:
+
+* [ScreenGlobalWindowWithLookupCacheEnricher](src/main/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithLookupCacheEnricher.scala)
+* [ScreenGlobalWindowWithLookupCacheEnricherTest](src/test/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithLookupCacheEnricherTest.scala)
+
+Pros:
+
+TODO
+
+Cons:
+
+TODO
+
 

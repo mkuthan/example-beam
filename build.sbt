@@ -15,7 +15,7 @@
 // limitations under the License.
 
 lazy val beamVersion = "2.20.0"
-lazy val scioVersion = "0.9.0"
+lazy val scioVersion = "0.9.1-SNAPSHOT"
 lazy val scalatestVersion = "3.1.1"
 
 lazy val commonSettings = Seq(
@@ -62,21 +62,23 @@ lazy val customScalacOptions = Seq(
   "-Ywarn-unused:patvars", // Warn if a variable bound in a pattern is unused.
   // "-Ywarn-unused:privates", // Warn if a private member is unused.
   "-Ywarn-value-discard", // Warn when non-Unit expression results are unused.
-  "-Ybackend-parallelism", "8", // Enable paralellisation — change to desired number!
+  "-Ybackend-parallelism",
+  "8", // Enable paralellisation — change to desired number!
   "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins
-  "-Ycache-macro-class-loader:last-modified", // and macro definitions. This can lead to performance improvements.
+  "-Ycache-macro-class-loader:last-modified" // and macro definitions. This can lead to performance improvements.
 )
 
 lazy val customLibraryDependencies = Seq(
+  // beam
   "org.apache.beam" % "beam-runners-direct-java" % beamVersion,
-
+  // scio
   "com.spotify" %% "scio-core" % scioVersion,
   "com.spotify" %% "scio-bigquery" % scioVersion,
-
   "com.spotify" %% "scio-test" % scioVersion % Test,
-
+  // logging
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
-
+  // testing
   "org.scalatest" %% "scalatest" % scalatestVersion % "test"
 )
 
@@ -92,6 +94,7 @@ lazy val customJavaOptions = Seq(
 lazy val root = (project in file("."))
   .settings(commonSettings)
   .settings(scalacOptions ++= customScalacOptions)
+  .settings(resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
   .settings(libraryDependencies ++= customLibraryDependencies)
   .settings(excludeDependencies ++= commonExcludeDependencies)
   .settings(fork in run := true)

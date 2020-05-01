@@ -15,6 +15,8 @@
 // limitations under the License.
 package org.mkuthan.beam
 
+import scala.reflect.ClassTag
+
 import cats.kernel.Eq
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.testing.SCollectionMatchers
@@ -22,8 +24,6 @@ import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow
 import org.joda.time.Instant
 import org.scalatest.matchers.Matcher
-
-import scala.reflect.ClassTag
 
 trait TimestampedMatchers {
   this: SCollectionMatchers =>
@@ -36,11 +36,12 @@ trait TimestampedMatchers {
   def inFinalPane[T: ClassTag](begin: String, end: String)(matcher: MatcherBuilder[T]): Matcher[T] =
     inFinalPane(new IntervalWindow(stringToInstant(begin), stringToInstant(end)))(matcher)
 
-  def containSingleValue[T: Coder: Eq](
-      time: String,
-      value: T
-  ): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] = {
-    val instant = stringToInstant(time).minus(1)
-    containSingleValue((value, instant))
-  }
+  def inLatePane[T: ClassTag](begin: String, end: String)(matcher: MatcherBuilder[T]): Matcher[T] =
+    inLatePane(new IntervalWindow(stringToInstant(begin), stringToInstant(end)))(matcher)
+
+  def containSingleValueAtTime[T: Coder : Eq](time: String, value: T): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containSingleValue((value, stringToInstant(time)))
+
+  def containSingleValueAtWindowTime[T: Coder : Eq](time: String, value: T): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containSingleValue((value, stringToInstant(time).minus(1)))
 }
