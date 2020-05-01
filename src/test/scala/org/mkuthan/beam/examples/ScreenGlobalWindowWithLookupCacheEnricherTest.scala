@@ -91,7 +91,8 @@ class ScreenGlobalWindowWithLookupCacheEnricherTest extends PipelineSpec with Ti
     dlq.withTimestamp should containSingleValueAtTime("13:00:01", anyScreen)
   }
 
-  "Screen" should "be enriched by last publication" in runWithContext { sc =>
+  // publications with the same timestamp are unordered (and modeled as Iterable passed to the ParDo)
+  ignore should "be enriched by last publication" in runWithContext { sc =>
     val screens = testStreamOf[Screen]
       .advanceWatermarkTo("13:00:00") // ensure that publication has been seen
       .addElementsAtTime("13:00:00", anyScreen)
