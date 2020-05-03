@@ -4,9 +4,9 @@ Playground for [Apache Beam](https://beam.apache.org) and
 [Scio](https://github.com/spotify/scio) experiments,
 driven by real-world use cases.
 
-## Join in fixed window
+## Group in fixed window
 
-Ad impressions and clicks joined in the fixed window to calculate CTR (Click Through Rate) per Screen:
+Ad impressions and clicks grouped in the fixed window to calculate CTR (Click Through Rate) per Screen:
 
 * [AdCtrFixedWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrFixedWindowCalculator.scala)
 * [AdCtrFixedWindowCalculatorTest](src/test/scala/org/mkuthan/example/beam/AdCtrFixedWindowCalculatorTest.scala)
@@ -14,20 +14,35 @@ Ad impressions and clicks joined in the fixed window to calculate CTR (Click Thr
 Pros:
 
 * Built-in Beam support for the fixed window.
-* Built-in Beam support for handling late Ad events.
-* CTR is calculated correctly for unordered Ad events, e.g: when click appears before impression.
+* Built-in Beam support for handling late events.
+* CTR is calculated correctly for unordered events, e.g: when click appears before impression.
 Yep, it's fully reasonable assumption in the distributed systems.
 
 Cons:
 
 * High latency, CTR is always emitted at the end of window. 
-CTR could be emitted when matched click is observed with the click event time.
-* Higher resource utilization.
-Ad events are kept in the state until end of the window.
+CTR could be emitted immediately when matched click is seen with the click event time.
+* Higher resource utilization. Events are kept in the state until end of the window.
 If CTR was emitted earlier the resources would be released.
 * An incomplete CTR for events close to the windows boundaries.
 If the click is very close to the impression but in a different window the CTR will not be calculated correctly
 (e.g impression at 11:59:00 and click at 12:00:00 for 10 minutes window).
+
+## Group in sliding window
+
+CTRs from different screens grouped in the sliding window to calculate CTR moving average:
+
+* [AdCtrSlidingWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrSlidingWindowCalculator.scala)
+* [AdCtrSlidingWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/AdCtrSlidingWindowCalculatorTest.scala)
+
+Pros:
+* Built-in Beam support for the sliding window.
+* Built-in Beam support for handling late events (TODO: tests).
+
+Cons:
+* Huge overhead if the window duration is much longer than window period.
+* Sliding windows are not very convenient for downstream processing and should be converted into FixedWindows in one of the final transformation steps.
+It also allows writing test with window boundaries verification (SlidingWindow is not a BoundedWindow).  
 
 ## Join in fixed window with "repeater"
 
@@ -62,10 +77,11 @@ Screen events enriched by Publication event in global window, Publication events
 
 Pros:
 
-TODO
+* The lowest latency, Screen event is emitted immediately if the publication has been already seen, 
+or when late publication is processed.
+* Resource/cost friendly, only right side of the join (publications) are cached for given period of time.
 
 Cons:
 
-TODO
-
-
+* Applicable only for very specific use-case, it looks like full outer join but it is not. 
+Only the latest element in the right side of the join (Publication) is used, earlier elements are discarded.

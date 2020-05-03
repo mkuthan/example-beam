@@ -31,4 +31,12 @@ trait ModelFixtures {
   val anyImpression = anyAdEvent.copy(action = AdAction.Impression)
 
   val anyAdCtr = AdCtr.unknown(anyAdId)
+
+  val adCtrUndefined = AdCtr.click(anyAdId)
+  val adCtrZero = AdCtr.impression(anyAdId)
+  val adCtrOne = AdCtr(anyAdId, clicks = 1, impressions = 1)
+
+  val adCtrUndefinedByScreen = (anyScreenId, adCtrUndefined)
+  val adCtrZeroByScreen = (anyScreenId, adCtrZero)
+  val adCtrOneByScreen = (anyScreenId, adCtrOne)
 }

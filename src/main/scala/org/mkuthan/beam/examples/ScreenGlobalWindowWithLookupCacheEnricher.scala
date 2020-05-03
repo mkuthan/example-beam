@@ -30,7 +30,7 @@ object ScreenGlobalWindowWithLookupCacheEnricher {
       .withName("Key Screen by PublicationId")
       .keyBy { screen => screen.publicationId }
 
-    val publicationsByScreenId = publications
+    val publicationsByPublicationId = publications
       .withName("Reset Publication into GlobalWindow")
       .withGlobalWindow(GlobalWindowOptions)
       .withName("Key Publication by PublicationId")
@@ -38,7 +38,7 @@ object ScreenGlobalWindowWithLookupCacheEnricher {
 
     val screensAndPublication = screensByPublicationId
       .withName("CoGroup Screen with Publication")
-      .cogroup(publicationsByScreenId)
+      .cogroup(publicationsByPublicationId)
       .withName("Join Screen with Publication")
       .applyPerKeyDoFn(new LookupCacheDoFn(publicationTtl))
       .withName("Discard Screen with Publication join key")

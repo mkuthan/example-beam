@@ -32,132 +32,128 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
   val beginOfSecondWindow = "12:10:00"
   val endOfSecondWindow = "12:20:00"
 
-  val ctrZero = (anyScreenId, anyAdCtr.copy(clicks = 0, impressions = 1))
-  val ctrOne = (anyScreenId, anyAdCtr.copy(clicks = 1, impressions = 1))
-  val ctrUndefined = (anyScreenId, anyAdCtr.copy(clicks = 1, impressions = 0))
-
   "Impression and then click on-time" should "give ctr 1.0" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyImpression)
-      .addElementsAtTime("12:02:00", anyClick)
+    val events = testStreamOf[AdEvent]
+      .addElementsAtTime("12:00:01", anyImpression)
+      .addElementsAtTime("12:00:02", anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+    val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValueAtWindowTime(endOfWindow, ctrOne)
+    ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
     }
   }
 
   "Click and then impression on-time" should "give ctr 1.0" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyClick)
-      .addElementsAtTime("12:02:00", anyImpression)
+    val events = testStreamOf[AdEvent]
+      .addElementsAtTime("12:00:01", anyClick)
+      .addElementsAtTime("12:00:02", anyImpression)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+    val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValueAtWindowTime(endOfWindow, ctrOne)
+    ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
     }
   }
 
   "Duplicated impression and click on-time" should "give give ctr 1.0" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyImpression, anyImpression)
-      .addElementsAtTime("12:02:00", anyClick)
+    val events = testStreamOf[AdEvent]
+      .addElementsAtTime("12:00:01", anyImpression, anyImpression)
+      .addElementsAtTime("12:00:02", anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+    val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValueAtWindowTime(endOfWindow, ctrOne)
+    ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
     }
   }
 
   "Impression and duplicated click on-time" should "give give ctr 1.0" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
-      .addElementsAtTime("12:01:00", anyImpression)
-      .addElementsAtTime("12:02:00", anyClick, anyClick)
+    val events = testStreamOf[AdEvent]
+      .addElementsAtTime("12:00:01", anyImpression)
+      .addElementsAtTime("12:00:02", anyClick, anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+    val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-    ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-      containSingleValueAtWindowTime(endOfWindow, ctrOne)
+    ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
     }
   }
 
   "Impression on-time but click out-of-window" should "give ctr 0.0 in impression window and undefined in click window" in runWithContext {
     sc =>
-      val adEvents = testStreamOf[AdEvent]
-        .addElementsAtTime("12:01:00", anyImpression)
-        .addElementsAtTime("12:11:00", anyClick)
+      val events = testStreamOf[AdEvent]
+        .addElementsAtTime("12:00:01", anyImpression)
+        .addElementsAtTime("12:10:00", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+      val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-        containSingleValueAtWindowTime(endOfWindow, ctrZero)
+      ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
       }
 
-      ctrs should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
-        containSingleValueAtWindowTime(endOfSecondWindow, ctrUndefined)
+      ctrs.withTimestamp should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
+        containSingleValueAtWindowTime(endOfSecondWindow, adCtrUndefinedByScreen)
       }
   }
 
   "Impression on-time and late click" should "give ctr 0.0 in on-time pane and late pane is empty" in runWithContext {
     sc =>
-      val adEvents = testStreamOf[AdEvent]
-        .addElementsAtTime("12:01:00", anyImpression)
+      val events = testStreamOf[AdEvent]
+        .addElementsAtTime("12:00:01", anyImpression)
         .advanceWatermarkTo(endOfWindow) // ensure that the next click will be considered late
-        .addElementsAtTime("12:09:00", anyClick)
+        .addElementsAtTime("12:09:59", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+      val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-        containSingleValueAtWindowTime(endOfWindow, ctrZero)
+      ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
       }
 
-      ctrs should inLatePane(beginOfWindow, endOfWindow) { beEmpty }
+      ctrs.withTimestamp should inLatePane(beginOfWindow, endOfWindow) { beEmpty }
   }
 
   "Impression on-time and late click but in allowed lateness" should "give ctr 0.0 in on-time pane and 1.0 in late pane" in runWithContext {
     sc =>
-      val adEvents = testStreamOf[AdEvent]
-        .addElementsAtTime("12:01:00", anyImpression)
+      val events = testStreamOf[AdEvent]
+        .addElementsAtTime("12:00:01", anyImpression)
         .advanceWatermarkTo(endOfWindow) // ensure that the next click will be considered late
-        .addElementsAtTime("12:09:00", anyClick)
+        .addElementsAtTime("12:09:59", anyClick)
         .advanceWatermarkToInfinity()
 
       val allowedLateness = Duration.standardMinutes(2)
-      val ctrs = calculateCtrByScreen(sc.testStream(adEvents), allowedLateness = allowedLateness).withTimestamp
+      val ctrs = calculateCtrByScreen(sc.testStream(events), allowedLateness = allowedLateness)
 
-      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-        containSingleValueAtWindowTime(endOfWindow, ctrZero)
+      ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
       }
 
-      ctrs should inLatePane(beginOfWindow, endOfWindow) {
-        containSingleValueAtWindowTime(endOfWindow, ctrOne)
+      ctrs.withTimestamp should inLatePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
       }
   }
 
   "Impression just before click but out-of-window" should "give ctr 0.0 for impression window and undefined for click window" in runWithContext {
     sc =>
-      val adEvents = testStreamOf[AdEvent]
+      val events = testStreamOf[AdEvent]
         .addElementsAtTime("12:09:59", anyImpression)
         .addElementsAtTime("12:10:00", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(adEvents)).withTimestamp
+      val ctrs = calculateCtrByScreen(sc.testStream(events))
 
-      ctrs should inOnTimePane(beginOfWindow, endOfWindow) {
-        containSingleValueAtWindowTime(endOfWindow, ctrZero)
+      ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
       }
 
-      ctrs should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
-        containSingleValueAtWindowTime(endOfSecondWindow, ctrUndefined)
+      ctrs.withTimestamp should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
+        containSingleValueAtWindowTime(endOfSecondWindow, adCtrUndefinedByScreen)
       }
   }
 

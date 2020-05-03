@@ -30,7 +30,7 @@ object AdEventFixedWindowWithRepeaterEnricher {
   val DefaultScreenTtlDuration = Duration.standardMinutes(10)
 
   def enrichByScreen(
-      adEvents: SCollection[AdEvent],
+      events: SCollection[AdEvent],
       screens: SCollection[Screen],
       window: Duration = DefaultFixedWindowDuration,
       screenTtl: Duration = DefaultScreenTtlDuration,
@@ -46,7 +46,7 @@ object AdEventFixedWindowWithRepeaterEnricher {
       accumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES
     )
 
-    val adEventsByScreenId = adEvents
+    val eventsByScreenId = events
       .withName("Key AdEvent by ScreenId")
       .keyBy { adEvent => adEvent.screenId }
       .withName(s"Apply fixed window on AdEvent of $window and allowed lateness $allowedLateness")
@@ -60,25 +60,25 @@ object AdEventFixedWindowWithRepeaterEnricher {
       .withName(s"Apply fixed window on Screen of $window and allowed lateness $allowedLateness")
       .withFixedWindows(duration = window, options = windowOptions)
 
-    val adEventsAndScreen = adEventsByScreenId
+    val eventsAndScreen = eventsByScreenId
       .withName("Join AdEvent with Screen")
       .leftOuterJoin(screenByScreenId)
       .withName("Discard ScreenId join key")
       .values
 
-    val adEventsWithoutScreen = SideOutput[AdEvent]()
+    val eventsWithoutScreen = SideOutput[AdEvent]()
 
-    val (adEventsEnriched, sideOutputs) = adEventsAndScreen
-      .withSideOutputs(adEventsWithoutScreen)
+    val (eventsEnriched, sideOutputs) = eventsAndScreen
+      .withSideOutputs(eventsWithoutScreen)
       .withName("Discard AdEvent without Screen")
       .flatMap {
         case (adEventAndScreen, ctx) =>
           adEventAndScreen match {
             case (adEvent, Some(screen)) => Some((adEvent, screen))
-            case (adEvent, None)         => ctx.output(adEventsWithoutScreen, adEvent); None
+            case (adEvent, None)         => ctx.output(eventsWithoutScreen, adEvent); None
           }
       }
 
-    (adEventsEnriched, sideOutputs(adEventsWithoutScreen))
+    (eventsEnriched, sideOutputs(eventsWithoutScreen))
   }
 }

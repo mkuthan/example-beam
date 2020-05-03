@@ -35,16 +35,16 @@ class AdEventFixedWindowWithRepeaterEnricherTest extends PipelineSpec with Times
   val endOfThirdWindow = "12:30:00"
 
   "AdEvent" should "be enriched by screen" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
+    val events = testStreamOf[AdEvent]
       .advanceWatermarkTo("12:00:00") // ensure that screen has been seen
       .addElementsAtTime("12:00:01", anyAdEvent)
       .advanceWatermarkToInfinity()
 
-    val adScreens = testStreamOf[Screen]
+    val screens = testStreamOf[Screen]
       .addElementsAtTime("12:00:00", anyScreen)
       .advanceWatermarkToInfinity()
 
-    val (enriched, dlq) = enrichByScreen(sc.testStream(adEvents), sc.testStream(adScreens))
+    val (enriched, dlq) = enrichByScreen(sc.testStream(events), sc.testStream(screens))
 
     enriched.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, (anyAdEvent, anyScreen))
@@ -54,16 +54,16 @@ class AdEventFixedWindowWithRepeaterEnricherTest extends PipelineSpec with Times
   }
 
   "AdEvent" should "be enriched by screen after event" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
+    val events = testStreamOf[AdEvent]
       .addElementsAtTime("12:00:00", anyAdEvent)
       .advanceWatermarkToInfinity()
 
-    val adScreens = testStreamOf[Screen]
+    val screens = testStreamOf[Screen]
       .advanceWatermarkTo("12:00:01") // ensure that Ad event has been seen
       .addElementsAtTime("12:00:01", anyScreen)
       .advanceWatermarkToInfinity()
 
-    val (enriched, dlq) = enrichByScreen(sc.testStream(adEvents), sc.testStream(adScreens))
+    val (enriched, dlq) = enrichByScreen(sc.testStream(events), sc.testStream(screens))
 
     enriched.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, (anyAdEvent, anyScreen))
@@ -73,16 +73,16 @@ class AdEventFixedWindowWithRepeaterEnricherTest extends PipelineSpec with Times
   }
 
   "AdEvent" should "be enriched by repeated screen" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
+    val events = testStreamOf[AdEvent]
       .advanceWatermarkTo("12:10:00") // ensure that screen has been seen
       .addElementsAtTime("12:10:00", anyAdEvent)
       .advanceWatermarkToInfinity()
 
-    val adScreens = testStreamOf[Screen]
+    val screens = testStreamOf[Screen]
       .addElementsAtTime("12:09:59", anyScreen)
       .advanceWatermarkToInfinity()
 
-    val (enriched, dlq) = enrichByScreen(sc.testStream(adEvents), sc.testStream(adScreens))
+    val (enriched, dlq) = enrichByScreen(sc.testStream(events), sc.testStream(screens))
 
     enriched.withTimestamp should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
       containSingleValueAtWindowTime(endOfSecondWindow, (anyAdEvent, anyScreen))
@@ -92,16 +92,16 @@ class AdEventFixedWindowWithRepeaterEnricherTest extends PipelineSpec with Times
   }
 
   "AdEvent" should "not be enriched by expired screen" in runWithContext { sc =>
-    val adEvents = testStreamOf[AdEvent]
+    val events = testStreamOf[AdEvent]
       .advanceWatermarkTo("12:20:00") // ensure that screen has been expired
       .addElementsAtTime("12:20:01", anyAdEvent)
       .advanceWatermarkToInfinity()
 
-    val adScreens = testStreamOf[Screen]
+    val screens = testStreamOf[Screen]
       .addElementsAtTime("12:00:01", anyScreen)
       .advanceWatermarkToInfinity()
 
-    val (enriched, dlq) = enrichByScreen(sc.testStream(adEvents), sc.testStream(adScreens))
+    val (enriched, dlq) = enrichByScreen(sc.testStream(events), sc.testStream(screens))
 
     enriched should beEmpty
 
