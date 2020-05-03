@@ -37,7 +37,7 @@ CTRs from different screens grouped in the sliding window to calculate CTR movin
 
 Pros:
 * Built-in Beam support for the sliding window.
-* Built-in Beam support for handling late events (TODO: tests).
+* Built-in Beam support for handling late events.
 
 Cons:
 * Huge overhead if the window duration is much longer than window period.
@@ -67,6 +67,27 @@ But the window might be quite short because Screen events are repeated.
 * Higher resource utilization, the Screen events must be cached. 
 But the frequency of Screen events are typically much lower than Ad events, so 
 the negative performance/cost impact should be negligible.
+
+Alternatives:
+
+* Fixed window with longer duration (driven by required screen TTL). 
+
+## Join in global window with SideInput
+
+Screen events enriched by Publication in global window, Publication events are broadcasted as IterableSideInput:
+
+* [ScreenGlobalWindowWithSideInputEnricher](src/main/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithSideInputEnricher.scala)
+* [ScreenGlobalWindowWithSideInputEnricherTest](src/test/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithSideInputEnricherTest.scala)
+
+Pros:
+
+* Built-in support for side input.
+* Effective for small and slowly changing side input.
+
+Cons:
+
+* Only IterabelSideInput is reliable in practice, see comments in the above example.
+* It kills your scalability if there are too many publications, or the publications will be emmited too frequently.   
 
 ## Join in global window with "cache"
 

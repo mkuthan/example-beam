@@ -19,6 +19,7 @@ package org.mkuthan.beam.examples
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.testing._
 import com.spotify.scio.testing.testStreamOf
+import org.joda.time.Duration
 import org.mkuthan.beam.TimestampedMatchers
 
 class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatchers with ModelFixtures {
@@ -69,7 +70,7 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
       }
 
       ctrs.withTimestamp should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
-        containSingleValueAtWindowTime(endOfSecondWindow, anyAdCtr.copy(clicks = 1, impressions = 2))
+        containSingleValueAtWindowTime(endOfSecondWindow, adCtrOne.copy(impressions = 2))
       }
 
       ctrs.withTimestamp should inOnTimePane(beginOfThirdWindow, endOfThirdWindow) {
@@ -77,5 +78,30 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
       }
 
       ctrs.withTimestamp should inOnTimePane(beginOfFourthWindow, endOfFourthWindow) { beEmpty }
+  }
+
+  "Running average of ctr 1.0 on-time and 0.0 late in the first period" should "be 1.0, 0.5" in runWithContext { sc =>
+    val ctrsByScreen = testStreamOf[(ScreenId, AdCtr)]
+      .addElementsAtTime("12:00:01", adCtrOneByScreen)
+      .advanceWatermarkTo(endOfWindow)
+      .addElementsAtTime("12:05:01", adCtrZeroByScreen)
+      .advanceWatermarkToInfinity()
+
+    val allowedLateness = Duration.standardMinutes(5)
+    val ctrs = calculateCtr(sc.testStream(ctrsByScreen), allowedLateness = allowedLateness)
+
+    ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOne)
+    }
+
+    ctrs.withTimestamp should inLatePane(beginOfWindow, endOfWindow) {
+      containSingleValueAtWindowTime(endOfWindow, adCtrOne.copy(impressions = 2))
+    }
+
+    ctrs.withTimestamp should inOnTimePane(beginOfSecondWindow, endOfSecondWindow) {
+      containSingleValueAtWindowTime(endOfSecondWindow, adCtrOne.copy(impressions = 2))
+    }
+
+    ctrs.withTimestamp should inOnTimePane(beginOfThirdWindow, endOfThirdWindow) { beEmpty }
   }
 }

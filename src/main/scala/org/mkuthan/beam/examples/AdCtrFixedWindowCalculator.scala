@@ -28,7 +28,7 @@ object AdCtrFixedWindowCalculator {
 
   def calculateCtrByScreen(
       events: SCollection[AdEvent],
-      window: Duration = DefaultFixedWindowDuration,
+      windowDuration: Duration = DefaultFixedWindowDuration,
       allowedLateness: Duration = Duration.ZERO
   ): SCollection[(ScreenId, AdCtr)] = {
     val windowOptions = WindowOptions(
@@ -46,8 +46,8 @@ object AdCtrFixedWindowCalculator {
       .keyBy { adEvent => (adEvent.id, adEvent.screenId) }
       .withName("Prepare initial AdCtr from AdEvent")
       .mapValues { adEvent => AdCtr.fromAdEvent(adEvent) }
-      .withName(s"Apply fixed window of $window and allowed lateness $allowedLateness")
-      .withFixedWindows(duration = window, options = windowOptions)
+      .withName(s"Apply fixed window of $windowDuration and allowed lateness $allowedLateness")
+      .withFixedWindows(duration = windowDuration, options = windowOptions)
       .withName("Calculate capped CTR per ScreenId")
       .sumByKey(AdCtrCappedSemigroup)
       .withName("Discard AdId/ScreenId key")

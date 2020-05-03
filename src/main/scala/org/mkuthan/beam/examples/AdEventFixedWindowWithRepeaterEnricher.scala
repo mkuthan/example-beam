@@ -32,7 +32,7 @@ object AdEventFixedWindowWithRepeaterEnricher {
   def enrichByScreen(
       events: SCollection[AdEvent],
       screens: SCollection[Screen],
-      window: Duration = DefaultFixedWindowDuration,
+      windowDuration: Duration = DefaultFixedWindowDuration,
       screenTtl: Duration = DefaultScreenTtlDuration,
       allowedLateness: Duration = Duration.ZERO
   ): (SCollection[(AdEvent, Screen)], SCollection[AdEvent]) = {
@@ -49,16 +49,16 @@ object AdEventFixedWindowWithRepeaterEnricher {
     val eventsByScreenId = events
       .withName("Key AdEvent by ScreenId")
       .keyBy { adEvent => adEvent.screenId }
-      .withName(s"Apply fixed window on AdEvent of $window and allowed lateness $allowedLateness")
-      .withFixedWindows(duration = window, options = windowOptions)
+      .withName(s"Apply fixed window on AdEvent of $windowDuration and allowed lateness $allowedLateness")
+      .withFixedWindows(duration = windowDuration, options = windowOptions)
 
     val screenByScreenId = screens
       .withName("Key Screen by ScreenId")
       .keyBy { screen => screen.id }
-      .withName(s"Repeat Screen on every $window for $screenTtl")
-      .applyPerKeyDoFn(new RepeatDoFn(window, screenTtl))
-      .withName(s"Apply fixed window on Screen of $window and allowed lateness $allowedLateness")
-      .withFixedWindows(duration = window, options = windowOptions)
+      .withName(s"Repeat Screen on every $windowDuration for $screenTtl")
+      .applyPerKeyDoFn(new RepeatDoFn(windowDuration, screenTtl))
+      .withName(s"Apply fixed window on Screen of $windowDuration and allowed lateness $allowedLateness")
+      .withFixedWindows(duration = windowDuration, options = windowOptions)
 
     val eventsAndScreen = eventsByScreenId
       .withName("Join AdEvent with Screen")
