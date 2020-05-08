@@ -72,9 +72,15 @@ class AdEventWindow(
 }
 
 object AdEventWindow {
-  def forImpression(e: AdEvent, timestamp: Instant, impressionToClickWindowDuration: Duration): AdEventWindow =
-    new AdEventWindow(timestamp, timestamp.plus(impressionToClickWindowDuration), e.screenId, e.id, false)
+  def forImpression(e: AdEvent, timestamp: Instant, impressionToClickWindowDuration: Duration): AdEventWindow = {
+    val end = timestamp.plus(impressionToClickWindowDuration).minus(1)
+    val isClick = false
+    new AdEventWindow(timestamp, end, e.screenId, e.id, isClick)
+  }
 
-  def forClick(e: AdEvent, timestamp: Instant, clickToImpressionWindowDuration: Duration): AdEventWindow =
-    new AdEventWindow(timestamp, timestamp.plus(clickToImpressionWindowDuration), e.screenId, e.id, true)
+  def forClick(e: AdEvent, timestamp: Instant, clickToImpressionWindowDuration: Duration): AdEventWindow = {
+    val end = timestamp.plus(clickToImpressionWindowDuration).minus(1)
+    val isClick = true
+    new AdEventWindow(timestamp, end, e.screenId, e.id, isClick)
+  }
 }

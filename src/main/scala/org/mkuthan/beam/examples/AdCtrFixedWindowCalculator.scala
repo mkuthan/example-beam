@@ -33,11 +33,13 @@ object AdCtrFixedWindowCalculator {
   ): SCollection[(ScreenId, AdCtr)] = {
     val windowOptions = WindowOptions(
       allowedLateness = allowedLateness,
-      trigger = AfterWatermark
-        .pastEndOfWindow()
-        .withLateFirings(
-          AfterProcessingTime.pastFirstElementInPane()
-        ),
+      trigger = Repeatedly.forever(
+        AfterWatermark
+          .pastEndOfWindow()
+          .withLateFirings(
+            AfterProcessingTime.pastFirstElementInPane()
+          )
+      ),
       accumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES
     )
 

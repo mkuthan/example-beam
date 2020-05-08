@@ -39,6 +39,12 @@ trait TimestampedMatchers {
   def inLatePane[T: ClassTag](begin: String, end: String)(matcher: MatcherBuilder[T]): Matcher[T] =
     inLatePane(new IntervalWindow(stringToInstant(begin), stringToInstant(end)))(matcher)
 
+  def containValueAtTime[T: Coder: Eq](
+      time: String,
+      value: T
+  ): IterableMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containValue((value, stringToInstant(time)))
+
   def containSingleValueAtTime[T: Coder: Eq](
       time: String,
       value: T
@@ -50,9 +56,21 @@ trait TimestampedMatchers {
   ): IterableMatcher[SCollection[(T, Instant)], (T, Instant)] =
     containInAnyOrder(value.map { case (time, v) => (v, stringToInstant(time)) })
 
+  def containValueAtWindowTime[T: Coder: Eq](
+      time: String,
+      value: T
+  ): IterableMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containValue((value, stringToInstant(time).minus(1)))
+
   def containSingleValueAtWindowTime[T: Coder: Eq](
       time: String,
       value: T
   ): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] =
     containSingleValue((value, stringToInstant(time).minus(1)))
+
+  def containInAnyOrderAtWindowTime[T: Coder: Eq](
+      value: Iterable[(String, T)]
+  ): IterableMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containInAnyOrder(value.map { case (time, v) => (v, stringToInstant(time).minus(1)) })
+
 }

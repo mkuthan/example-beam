@@ -21,6 +21,7 @@ import com.spotify.scio.values.SideOutput
 import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark
+import org.apache.beam.sdk.transforms.windowing.Repeatedly
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
 
@@ -38,11 +39,13 @@ object AdEventFixedWindowWithRepeaterEnricher {
   ): (SCollection[(AdEvent, Screen)], SCollection[AdEvent]) = {
     val windowOptions = WindowOptions(
       allowedLateness = allowedLateness,
-      trigger = AfterWatermark
-        .pastEndOfWindow()
-        .withLateFirings(
-          AfterProcessingTime.pastFirstElementInPane()
-        ),
+      trigger = Repeatedly.forever(
+        AfterWatermark
+          .pastEndOfWindow()
+          .withLateFirings(
+            AfterProcessingTime.pastFirstElementInPane()
+          )
+      ),
       accumulationMode = AccumulationMode.ACCUMULATING_FIRED_PANES
     )
 
