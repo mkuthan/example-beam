@@ -10,7 +10,8 @@ import org.apache.beam.sdk.transforms.windowing.WindowFn
 import org.apache.beam.sdk.transforms.windowing.WindowMappingFn
 import org.joda.time.Duration
 
-// TODO: change Window[AnyRef, AdEventWindow] into Window[AdEvent, AdEventWindow] - report the issue to the Scio bug tracker
+// TODO: change Window[AnyRef, AdEventWindow] into Window[AdEvent, AdEventWindow]
+// https://github.com/spotify/scio/issues/2956
 class AdEventWindowFn(
     impressionToClickWindowDuration: Duration,
     clickToImpressionWindowDuration: Duration
