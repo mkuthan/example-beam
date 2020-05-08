@@ -45,6 +45,11 @@ trait TimestampedMatchers {
   ): SingleMatcher[SCollection[(T, Instant)], (T, Instant)] =
     containSingleValue((value, stringToInstant(time)))
 
+  def containInAnyOrderAtTime[T: Coder: Eq](
+      value: Iterable[(String, T)]
+  ): IterableMatcher[SCollection[(T, Instant)], (T, Instant)] =
+    containInAnyOrder(value.map { case (time, v) => (v, stringToInstant(time)) })
+
   def containSingleValueAtWindowTime[T: Coder: Eq](
       time: String,
       value: T

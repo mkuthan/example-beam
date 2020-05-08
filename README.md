@@ -28,6 +28,26 @@ If CTR was emitted earlier the resources would be released.
 If the click is very close to the impression but in a different window the CTR will not be calculated correctly
 (e.g impression at 11:59:00 and click at 12:00:00 for 10 minutes window).
 
+## Group in custom window
+
+Ad impression and clicks grouped in the custom window to calculate CTR (Click Through Rate) per Screen:
+
+* [AdCtrCustomWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrCustomWindowCalculator.scala)
+* [AdCtrCustomWindowCalculatorTest](src/test/scala/org/mkuthan/example/beam/AdCtrCustomWindowCalculatorTest.scala)
+
+Pros:
+
+* Custom window looks like a built-in window.
+* Built-in Beam support for handling late events (TODO: tests).
+* Low latency, CTR is emitted when click is seen.
+* Resource/cost friendly (I'm not really sure), the length of the window is driven by domain events.
+
+Cons:
+* The risk that custom windows are not fully supported by all runners
+* Non-trivial implementation (e.g. to be friendly for watermark handling by the runner).
+See [AdEventWindow](src/main/scala/org/mkuthan/beam/examples/AdEventWindow.scala) and [AdEventWindowFn](src/main/scala/org/mkuthan/beam/examples/AdEventWindowFn.scala).
+* Pane assertions do not work (TODO: why?)
+
 ## Group in sliding window
 
 CTRs from different screens grouped in the sliding window to calculate CTR moving average:
