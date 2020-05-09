@@ -7,8 +7,8 @@ driven by real-world use cases.
 ## Group in fixed window
 
 The most simplified grouping example with built-in, well documented fixed window.
-This is a good warm-up before deep diving into more complex scenarios. 
-It also shows many limitations of fixed window what makes the fixed window not suitable for many real-world use cases, unfortunately.
+This is a good warm-up before a deep dive into more complex examples. 
+It also shows many limitations which makes the fixed window not suitable for many real-world use cases, unfortunately.
 
 ### Domain
 
@@ -20,26 +20,26 @@ Please look at source code for more details:
 
 ### Pros
 
-* Built-in Beam support for the fixed window, well-documented with many examples over the web.
+* Built-in Beam support for the fixed window, well-documented, with many examples.
 * Built-in Beam support for handling late events.
-* Calculator calculates CTR correctly for unordered events, e.g: when click occurred before impression.
-Yep, it's fully reasonable assumption in the distributed systems that click event time is before impression event time.
+* Calculator calculates CTR correctly for unordered events, e.g: click event before impression event.
+Yep, in the distributed systems it's fully reasonable assumption that click event time is before impression event time.
 
 ### Cons
 
 * High latency, calculator emits CTR at the end of window with the end of window time. 
-CTR could be emitted immediately after click processing with the click event time.
-* Higher resource utilization. The window keeps all advertisement events until the end of the window.
+CTR could be emitted immediately after click event with the click event time.
+* Higher resources utilization. The window keeps all advertisement events until the end of the window.
 Resources would be released if calculator emits CTR as soon as possible but not at the end of window.
 * An incomplete CTR for events close to the windows boundaries.
-If the click is very close to the impression but in a different window the CTR will not be calculated correctly
+If the click is very close to the impression but in a different window, the CTR will be incomplete due to unmatched events
 (e.g impression at 11:59:00 and click at 12:00:00 for 10 minutes window).
-For shorter windows there are more unmatched events, for longer windows the latency increases.
+For shorter window duration there are more unmatched events, for longer window duration the latency increases.
 
 ## Group in sliding window
 
-The solutions for unmatched clicks and impression close to the windows boundaries with built-in sliding window.
-At first, looks like a "problem solved" but sliding window generate duplicates by its nature, 
+The built-in solution for unmatched clicks and impressions close to the windows boundaries.
+At first, looks like a "problem solved" but sliding window generates duplicates by its nature, 
 and it is appropriate only for the moving average metrics (moving CTRs are totally fine in most cases).
 
 ### Domain
@@ -51,7 +51,7 @@ Please look at source code for more details:
 * [AdCtrSlidingWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/AdCtrSlidingWindowCalculatorTest.scala)
 
 ### Pros
-* Built-in Beam support for the sliding window, well-documented with many examples over the web.
+* Built-in Beam support for the sliding window, well-documented, with many examples.
 * Built-in Beam support for handling late events.
 * Complete CTR for events close to the windows boundaries.
 
@@ -69,7 +69,7 @@ The most complex grouping example using custom window. Be aware: dragons are the
 
 ### Domain
 
-Ad impression and clicks grouped in the custom window to calculate CTR (Click Through Rate) per Screen.
+Advertisement impressions and clicks grouped in the custom window to calculate CTR (Click Through Rate) per Screen.
 Please look at source code for more details:
 
 * [AdCtrCustomWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrCustomWindowCalculator.scala)
@@ -77,14 +77,14 @@ Please look at source code for more details:
 
 ### Pros
 
-* Custom window looks like a built-in window but almost without any documentation.
-The best reference I found is [Streaming Systems](http://streamingsystems.net) book, "Custom Windowing" section.
+* Custom window looks like a built-in window.
 * Built-in Beam support for handling late events (TODO: I always get PaneInfo with timing=ON_TIME, and I don't know why).
 * Low latency, calculator emits CTR just after click event.
-* Resource/cost friendly, domain events drive the length of the window, and the runner should be able to release resources.
+* Resource/cost friendly, domain event drives the length of the window, and the runner should be able to release resources.
 
 ### Cons
 
+* Lack of documentation. The best reference I found is [Streaming Systems](http://streamingsystems.net) book, "Custom Windowing" section.
 * Non-trivial implementation (e.g. it's quite easy to turn back event time and mislead runner watermark handling).
 See [AdEventWindow](src/main/scala/org/mkuthan/beam/examples/AdEventWindow.scala) 
 and [AdEventWindowFn](src/main/scala/org/mkuthan/beam/examples/AdEventWindowFn.scala).
