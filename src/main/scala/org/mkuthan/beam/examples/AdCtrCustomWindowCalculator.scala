@@ -46,7 +46,8 @@ object AdCtrCustomWindowCalculator {
       .withName("Discard AdId/ScreenId key")
       .mapKeys { case (_, screenId) => screenId }
 
-    // ctrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "ctr by screen: ")
+    // ctrsByScreen.withWindow.debug(prefix = "ctr by screen with window:")
+    // ctrsByScreen.withPaneInfo.withTimestamp.debug(prefix = "ctr by screen with paneinfo: ")
 
     ctrsByScreen
   }

@@ -39,6 +39,13 @@ class AdCtrCustomWindowCalculatorTest extends PipelineSpec with TimestampedMatch
     val ctrs = calculateCtrByScreen(sc.testStream(events))
 
     ctrs.withTimestamp should containSingleValueAtTime(clickTime, adCtrOneByScreen)
+
+  // TODO: why onTimePane assertion does not work?
+  // CtrWindow{start=1970-01-01T12:00:00.000Z, end=1970-01-01T12:00:01.000Z, screenId='any screen id', adId='any ad id', isClick='true'}
+  // PaneInfo{isFirst=true, isLast=true, timing=ON_TIME, index=0, onTimeIndex=0})
+  // ctrs.withTimestamp should inOnTimePane(impressionTime, clickTime) {
+  //   containSingleValueAtTime(clickTime, adCtrOneByScreen)
+  // }
   }
 
   "Impression and then late click" should "give ctr 0.0 for impression window and undefined for click window" in runWithContext {
