@@ -80,11 +80,11 @@ Please look at source code for more details:
 * Custom window looks like a built-in window.
 * Built-in Beam support for handling late events (TODO: I always get PaneInfo with timing=ON_TIME, and I don't know why).
 * Low latency, calculator emits CTR just after click event.
-* Resource/cost friendly, domain event drives the length of the window, and the runner should be able to release resources.
+* Resource/cost friendly, domain event drives the length of the window, and the runner should be able to release resources early.
 
 ### Cons
 
-* Lack of documentation. The best reference I found is [Streaming Systems](http://streamingsystems.net) book, "Custom Windowing" section.
+* Lack of documentation. The best reference I found is [Streaming Systems](http://streamingsystems.net) book, see "Custom Windowing" section.
 * Non-trivial implementation (e.g. it's quite easy to turn back event time and mislead runner watermark handling).
 See [AdEventWindow](src/main/scala/org/mkuthan/beam/examples/AdEventWindow.scala) 
 and [AdEventWindowFn](src/main/scala/org/mkuthan/beam/examples/AdEventWindowFn.scala).
@@ -104,7 +104,7 @@ Fortunately there is Beam built-in workaround to join incompatible windows - Sid
 
 ### Domain
 
-Screen events enriched by Publication in the global window, Publication events are broadcasted as IterableSideInput:
+Screen events enriched by publication in the global window, Publication events are broadcasted as IterableSideInput:
 Please look at source code for more details:
 
 * [ScreenGlobalWindowWithSideInputEnricher](src/main/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithSideInputEnricher.scala)
@@ -121,20 +121,20 @@ What does mean slowly changing? Update on every 5 seconds [looks fine](https://b
 
 * Only IterableSideInput is fully reliable in practice, see comments in the example source code.
 * It kills your scalability if there are too many publications, or publisher emits too frequently.
-* Triggering and watermark handling for side inputs is a little magic.
+* I have a lot of open questions about triggering and watermark handling for side inputs.
 Please look at TODOs in the test source code.
 * When the runner releases the side input resources, that's the question? 
 There are many OOM side input related questions on StackOverflow. 
 
 ## Join in fixed window with "repeater"
 
-The Beam design pattern to mitigate the limitation of the identical windows length.
+The Beam design pattern to mitigate the limitation of the compatible windows length.
 For the left outer join with the distinct values on the right side, 
 the right side of the join might be repeated to simulate longer window than left side window.
 
 ### Domain
 
-Ad events enriched by Screen event in the fixed window, screen events are repeated to simulate longer window on the right side of the join.
+Advertisement events enriched by screen event in the fixed window, screen events are repeated to simulate longer window on the right side of the join.
 Please look at source code for more details:
 
 * [AdEventFixedWindowWithRepeaterEnricher](src/main/scala/org/mkuthan/beam/examples/AdEventFixedWindowWithRepeaterEnricher.scala)
@@ -149,22 +149,22 @@ Please look at source code for more details:
 Mobile application emits screen events at t0 time, but advertisement events could be emitted much later.
 Without [RepeatDoFn](src/main/scala/org/mkuthan/beam/examples/RepeatDoFn.scala) trick, 
 the windows for the both sides of the join must be compatible (e.g. with the same window duration).
-* Applicable only if the right side of the join is "distinct". 
-The duplicated screen event might be ignored or might replace the existing screen event in the cache.
+* Applicable only if the right side of the join could be "distinct". 
+The duplicated screen event might be ignored or might replace the existing screen event in the lookup cache.
 * Implementation is fully generic and reusable.
 
 ### Cons
 
 * Medium latency, enricher always emits advertisement event at the end of window with window time.
 Fortunately the window might be quite short because screen events are repeated.
-* Higher resource utilization, the Screen events must be cached and processed multiple times. 
+* Higher resource utilization, the screen events must be cached and processed multiple times. 
 Fortunately the frequency of screen events is typically much lower than advertisement events, so 
 the negative performance/cost impact should be negligible.
 
 ## Join in global window with "cache"
 
-The Beam desing pattern to mitigate SideInput limitations (limited size and limited updates frequency).
-Right side of the join might be cached, it is fully scalable because the cache is distributed by key.
+The Beam design pattern to mitigate SideInput limitations (limited size and limited updates frequency).
+Right side of the join is cached, it is fully scalable because the cache is distributed by key.
 
 ### Domain
 
@@ -180,7 +180,8 @@ Please look at source code for more details:
 * Unlimited scalability as long as keys are distributed evenly.
 * The lowest latency, enricher emits screen event immediately if the publication has been already seen, 
 or when late publication arrives.
-* Resource/cost friendly, only right side of the join (publications) are cached for the given period.
+* Resource/cost friendly, right side of the join (publications) is cached for the given (longer) period.
+The left side of the join (screens, a lot of screen events) is also cached but for shorter period.
 * Implementation is fully generic and reusable.
 
 ### Cons
