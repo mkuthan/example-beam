@@ -10,14 +10,12 @@ import org.apache.beam.sdk.transforms.windowing.WindowFn
 import org.apache.beam.sdk.transforms.windowing.WindowMappingFn
 import org.joda.time.Duration
 
-// TODO: change Window[AnyRef, AdEventWindow] into Window[AdEvent, AdEventWindow]
-// https://github.com/spotify/scio/issues/2956
 class AdEventWindowFn(
     impressionToClickWindowDuration: Duration,
     clickToImpressionWindowDuration: Duration
-) extends WindowFn[AnyRef, AdEventWindow] {
+) extends WindowFn[AdEvent, AdEventWindow] {
 
-  override def assignWindows(c: WindowFn[AnyRef, AdEventWindow]#AssignContext): Collection[AdEventWindow] = {
+  override def assignWindows(c: WindowFn[AdEvent, AdEventWindow]#AssignContext): Collection[AdEventWindow] = {
     val timestamp = c.timestamp()
     val adEvent = c.element()
     val window = adEvent match {
@@ -27,7 +25,7 @@ class AdEventWindowFn(
     Seq(window).asJavaCollection
   }
 
-  override def mergeWindows(c: WindowFn[AnyRef, AdEventWindow]#MergeContext): Unit = {
+  override def mergeWindows(c: WindowFn[AdEvent, AdEventWindow]#MergeContext): Unit = {
     val windows = c.windows().asScala
     val windowsByKey = windows.groupBy(w => w.key)
     val mergedWindows = windowsByKey.view.mapValues(ws => ws.reduce { (w1, w2) => w1.merge(w2) })
