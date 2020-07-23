@@ -26,13 +26,10 @@ import org.joda.time.Duration
 
 object AdCtrSlidingWindowCalculator {
 
-  val DefaultSlidingWindowDuration = Duration.standardMinutes(20)
-  val DefaultSlidingWindowPeriod = Duration.standardMinutes(10)
-
   def calculateCtr(
       ctrsByScreen: SCollection[(ScreenId, AdCtr)],
-      windowDuration: Duration = DefaultSlidingWindowDuration,
-      windowPeriod: Duration = DefaultSlidingWindowPeriod,
+      windowDuration: Duration,
+      windowPeriod: Duration,
       allowedLateness: Duration = Duration.ZERO
   ): SCollection[AdCtr] = {
     val windowOptions = WindowOptions(

@@ -24,11 +24,9 @@ import org.joda.time.Duration
 
 object AdCtrFixedWindowCalculator {
 
-  val DefaultFixedWindowDuration = Duration.standardMinutes(10)
-
   def calculateCtrByScreen(
       events: SCollection[AdEvent],
-      windowDuration: Duration = DefaultFixedWindowDuration,
+      windowDuration: Duration,
       allowedLateness: Duration = Duration.ZERO
   ): SCollection[(ScreenId, AdCtr)] = {
     val windowOptions = WindowOptions(

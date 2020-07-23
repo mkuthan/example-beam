@@ -26,6 +26,9 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
   import AdCtrSlidingWindowCalculator.calculateCtr
   import org.mkuthan.beam.TestImplicits._
 
+  val DefaultWindowDuration = Duration.standardMinutes(20)
+  val DefaultWindowPeriod = Duration.standardMinutes(10)
+
   val beginOfWindow = "12:00:00"
   val endOfWindow = "12:10:00"
 
@@ -43,7 +46,7 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
       .addElementsAtTime("12:00:01", adCtrOneByScreen)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtr(sc.testStream(ctrsByScreen))
+    val ctrs = calculateCtr(sc.testStream(ctrsByScreen), DefaultWindowDuration, DefaultWindowPeriod)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOne)
@@ -63,7 +66,7 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
         .addElementsAtTime("12:10:01", adCtrZeroByScreen)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtr(sc.testStream(ctrsByScreen))
+      val ctrs = calculateCtr(sc.testStream(ctrsByScreen), DefaultWindowDuration, DefaultWindowPeriod)
 
       ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
         containSingleValueAtWindowTime(endOfWindow, adCtrOne)
@@ -83,12 +86,12 @@ class AdCtrSlidingWindowCalculatorTest extends PipelineSpec with TimestampedMatc
   "Running average of ctr 1.0 on-time and 0.0 late in the first period" should "be 1.0, 0.5" in runWithContext { sc =>
     val ctrsByScreen = testStreamOf[(ScreenId, AdCtr)]
       .addElementsAtTime("12:00:01", adCtrOneByScreen)
-      .advanceWatermarkTo(endOfWindow)
+      .advanceWatermarkTo(endOfWindow) // ensure that the next ctr will be considered late
       .addElementsAtTime("12:05:01", adCtrZeroByScreen)
       .advanceWatermarkToInfinity()
 
     val allowedLateness = Duration.standardMinutes(5)
-    val ctrs = calculateCtr(sc.testStream(ctrsByScreen), allowedLateness = allowedLateness)
+    val ctrs = calculateCtr(sc.testStream(ctrsByScreen), DefaultWindowDuration, DefaultWindowPeriod, allowedLateness)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOne)

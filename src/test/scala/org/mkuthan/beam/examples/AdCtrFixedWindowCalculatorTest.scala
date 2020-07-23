@@ -26,6 +26,8 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
   import AdCtrFixedWindowCalculator.calculateCtrByScreen
   import org.mkuthan.beam.TestImplicits._
 
+  val DefaultWindowDuration = Duration.standardMinutes(10)
+
   val beginOfWindow = "12:00:00"
   val endOfWindow = "12:10:00"
 
@@ -38,7 +40,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
       .addElementsAtTime("12:00:02", anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(events))
+    val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
@@ -51,7 +53,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
       .addElementsAtTime("12:00:02", anyImpression)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(events))
+    val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
@@ -64,7 +66,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
       .addElementsAtTime("12:00:02", anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(events))
+    val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
@@ -77,21 +79,21 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
       .addElementsAtTime("12:00:02", anyClick, anyClick)
       .advanceWatermarkToInfinity()
 
-    val ctrs = calculateCtrByScreen(sc.testStream(events))
+    val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
     ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
       containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
     }
   }
 
-  "Impression on-time but click out-of-window" should "give ctr 0.0 in impression window and undefined in click window" in runWithContext {
+  "Impression on-time and click out-of-window" should "give ctr 0.0 in impression window and undefined in click window" in runWithContext {
     sc =>
       val events = testStreamOf[AdEvent]
         .addElementsAtTime("12:00:01", anyImpression)
-        .addElementsAtTime("12:10:00", anyClick)
+        .addElementsAtTime("12:10:01", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(events))
+      val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
       ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
         containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
@@ -110,7 +112,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
         .addElementsAtTime("12:09:59", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(events))
+      val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
       ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
         containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
@@ -127,11 +129,30 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
         .addElementsAtTime("12:09:59", anyClick)
         .advanceWatermarkToInfinity()
 
-      val allowedLateness = Duration.standardMinutes(2)
-      val ctrs = calculateCtrByScreen(sc.testStream(events), allowedLateness = allowedLateness)
+      val allowedLateness = Duration.standardMinutes(1)
+      val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration, allowedLateness)
 
       ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
         containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
+      }
+
+      ctrs.withTimestamp should inLatePane(beginOfWindow, endOfWindow) {
+        containSingleValueAtWindowTime(endOfWindow, adCtrOneByScreen)
+      }
+  }
+
+  "Late impression and click but in allowed lateness" should "give ctr 1.0 in late pane and on-time pane is empty" in runWithContext {
+    sc =>
+      val events = testStreamOf[AdEvent]
+        .advanceWatermarkTo(endOfWindow) // ensure that the next events will be considered late
+        .addElementsAtTime("12:09:59", anyClick, anyImpression)
+        .advanceWatermarkToInfinity()
+
+      val allowedLateness = Duration.standardMinutes(1)
+      val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration, allowedLateness)
+
+      ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
+        beEmpty
       }
 
       ctrs.withTimestamp should inLatePane(beginOfWindow, endOfWindow) {
@@ -146,7 +167,7 @@ class AdCtrFixedWindowCalculatorTest extends PipelineSpec with TimestampedMatche
         .addElementsAtTime("12:10:00", anyClick)
         .advanceWatermarkToInfinity()
 
-      val ctrs = calculateCtrByScreen(sc.testStream(events))
+      val ctrs = calculateCtrByScreen(sc.testStream(events), DefaultWindowDuration)
 
       ctrs.withTimestamp should inOnTimePane(beginOfWindow, endOfWindow) {
         containSingleValueAtWindowTime(endOfWindow, adCtrZeroByScreen)
