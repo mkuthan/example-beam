@@ -6,6 +6,7 @@ import com.spotify.scio.values.WindowOptions
 import org.apache.beam.sdk.transforms.windowing.AfterPane
 import org.apache.beam.sdk.transforms.windowing.Repeatedly
 import org.apache.beam.sdk.transforms.windowing.TimestampCombiner
+import org.apache.beam.sdk.transforms.windowing.Window.OnTimeBehavior
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.Duration
 
@@ -16,7 +17,8 @@ object ScreenGlobalWindowWithLookupCacheEnricher {
   private val GlobalWindowOptions = WindowOptions(
     trigger = Repeatedly.forever(AfterPane.elementCountAtLeast(1)),
     accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES,
-    timestampCombiner = TimestampCombiner.LATEST
+    timestampCombiner = TimestampCombiner.LATEST,
+    onTimeBehavior = OnTimeBehavior.FIRE_IF_NON_EMPTY
   )
 
   def enrichByPublication(

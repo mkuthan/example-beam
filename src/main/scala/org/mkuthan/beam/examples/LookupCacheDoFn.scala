@@ -84,33 +84,28 @@ class LookupCacheDoFn[K, V, Lookup](timeToLive: Duration)(
       @TimerId(GcTimerKey) gcTimer: Timer,
       receiver: OutputReceiver[OutputType[K, V, Lookup]]
   ): Unit = {
+    val key = element.getKey
     val (values, lookups) = element.getValue
+    logger.debug("Process: {}, {}", timestamp, element)
 
-    // process non-empty element only, empty element is emitted when watermark is advanced to infinity (e.g in tests)
-    if (!values.isEmpty || !lookups.isEmpty) {
-      logger.debug("Process: {}, {}", timestamp, element)
+    val lookup = cacheAndGetLookup(timestamp, lookups, lookupCacheState)
 
-      val key = element.getKey
+    if (lookup.isEmpty) {
+      // put key and current values to the cache if lookup element has not been seen yet
+      keyCacheState.write(key)
+      values.foreach { value => valuesCacheState.add(value) }
+    } else {
+      // output cached element values with lookup element
+      outputCachedValues(timestamp, key, valuesCacheState, lookup, receiver)
 
-      val lookup = cacheAndGetLookup(timestamp, lookups, lookupCacheState)
-
-      if (lookup.isEmpty) {
-        // put key and current values to the cache if lookup element has not been seen yet
-        keyCacheState.write(key)
-        values.foreach { value => valuesCacheState.add(value) }
-      } else {
-        // output cached element values with lookup element
-        outputCachedValues(timestamp, key, valuesCacheState, lookup, receiver)
-
-        // output current element values with lookup element
-        outputValues(timestamp, key, values, lookup, receiver)
-      }
-
-      // always update gc timer based on maximum timestamp seen
-      // this will keep overwriting the timer as long as there is an activity on the key
-      // once the key goes inactive then gc timer will fire
-      updateGcTimer(timestamp, maxTimestampSeenState, gcTimer)
+      // output current element values with lookup element
+      outputValues(timestamp, key, values, lookup, receiver)
     }
+
+    // always update gc timer based on maximum timestamp seen
+    // this will keep overwriting the timer as long as there is an activity on the key
+    // once the key goes inactive then gc timer will fire
+    updateGcTimer(timestamp, maxTimestampSeenState, gcTimer)
   }
 
   @OnTimer(GcTimerKey)
