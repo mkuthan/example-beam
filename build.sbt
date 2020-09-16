@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-lazy val beamVersion = "2.22.0"
-lazy val scioVersion = "0.9.3-SNAPSHOT"
-lazy val scalatestVersion = "3.2.0"
+lazy val beamVersion = "2.23.0"
+lazy val scioVersion = "0.9.4"
+lazy val scalatestVersion = "3.2.2"
 
 lazy val commonSettings = Seq(
   name := "beam-examples",
@@ -60,7 +60,7 @@ lazy val customScalacOptions = Seq(
   "-Ywarn-unused:locals", // Warn if a local definition is unused.
   "-Ywarn-unused:params", // Warn if a value parameter is unused.
   "-Ywarn-unused:patvars", // Warn if a variable bound in a pattern is unused.
-  // "-Ywarn-unused:privates", // Warn if a private member is unused.
+  "-Ywarn-unused:privates", // Warn if a private member is unused.
   "-Ywarn-value-discard", // Warn when non-Unit expression results are unused.
   "-Ybackend-parallelism",
   "8", // Enable paralellisation — change to desired number!
@@ -72,8 +72,10 @@ lazy val customLibraryDependencies = Seq(
   // beam
   "org.apache.beam" % "beam-runners-direct-java" % beamVersion,
   // scio
-  "com.spotify" %% "scio-core" % scioVersion,
+  "com.spotify" %% "scio-avro" % scioVersion,
   "com.spotify" %% "scio-bigquery" % scioVersion,
+  "com.spotify" %% "scio-core" % scioVersion,
+  "com.spotify" %% "scio-extra" % scioVersion,
   "com.spotify" %% "scio-test" % scioVersion % Test,
   // logging
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
