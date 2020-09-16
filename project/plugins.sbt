@@ -15,3 +15,7 @@
 // limitations under the License.
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.4")
+
+addSbtPlugin("com.cavorite" % "sbt-avro" % "3.1.0")
+
+libraryDependencies += "org.apache.avro" % "avro-compiler" % "1.8.2"

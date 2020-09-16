@@ -16,6 +16,8 @@
 
 package org.mkuthan.beam.examples
 
+import scala.annotation.unused
+
 import com.spotify.scio.coders.Coder
 import com.spotify.scio.coders.CoderMaterializer
 import com.typesafe.scalalogging.LazyLogging
@@ -47,15 +49,15 @@ class RepeatDoFn[K, V](interval: Duration, ttl: Duration) extends DoFn[KV[K, V],
 
   import RepeatDoFn._
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(CacheKey) private val cacheSpec =
     StateSpecs.value[KV[K, V]](CoderMaterializer.beamWithDefault(Coder[KV[K, V]]))
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(LastSeenKey) private val lastSeenSpec =
     StateSpecs.value[Instant](CoderMaterializer.beamWithDefault(Coder[Instant]))
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @TimerId(IntervalKey) private val triggerIntervalSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME)
 
   @ProcessElement

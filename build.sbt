@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-lazy val beamVersion = "2.23.0"
 lazy val scioVersion = "0.9.4"
+lazy val beamVersion = "2.23.0"
+lazy val avroVersion = "1.8.2"
 lazy val scalatestVersion = "3.2.2"
 
 lazy val commonSettings = Seq(
@@ -69,14 +70,16 @@ lazy val customScalacOptions = Seq(
 )
 
 lazy val customLibraryDependencies = Seq(
-  // beam
-  "org.apache.beam" % "beam-runners-direct-java" % beamVersion,
   // scio
   "com.spotify" %% "scio-avro" % scioVersion,
   "com.spotify" %% "scio-bigquery" % scioVersion,
   "com.spotify" %% "scio-core" % scioVersion,
   "com.spotify" %% "scio-extra" % scioVersion,
   "com.spotify" %% "scio-test" % scioVersion % Test,
+  // beam
+  "org.apache.beam" % "beam-runners-direct-java" % beamVersion,
+  // avro
+  "org.apache.avro" % "avro" % avroVersion,
   // logging
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -102,3 +105,5 @@ lazy val root = (project in file("."))
   .settings(fork in run := true)
   .settings(connectInput in run := true)
   .settings(javaOptions in run ++= customJavaOptions)
+  .settings(avroStringType := "String")
+  .settings(avroFieldVisibility := "private")

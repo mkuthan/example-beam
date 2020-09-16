@@ -1,5 +1,6 @@
 package org.mkuthan.beam.examples
 
+import scala.annotation.unused
 import scala.jdk.CollectionConverters._
 
 import com.spotify.scio.coders.Coder
@@ -56,21 +57,21 @@ class LookupCacheDoFn[K, V, Lookup](timeToLive: Duration)(
 
   import LookupCacheDoFn._
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(KeyCacheKey) private val keyCacheSpec = StateSpecs.value[K](CoderMaterializer.beamWithDefault(Coder[K]))
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(ValuesCacheKey) private val valuesCacheSpec = StateSpecs.bag[V](CoderMaterializer.beamWithDefault(Coder[V]))
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(LookupCacheKey) private val lookupCacheSpec =
     StateSpecs.value[(Instant, Lookup)](CoderMaterializer.beamWithDefault(Coder[(Instant, Lookup)]))
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @StateId(MaxTimestampSeenKey) private val maxTimestampSeenSpec =
     StateSpecs.combining(CoderMaterializer.beamWithDefault(Coder[Holder[Instant]]), new MaxInstantFn())
 
-  // noinspection ScalaUnusedSymbol
+  @unused
   @TimerId(GcTimerKey) private val gcTimerSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME)
 
   @ProcessElement

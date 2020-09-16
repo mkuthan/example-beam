@@ -1,0 +1,11 @@
+@namespace("org.mkuthan.beam.examples")
+protocol AvroExampleInterface {
+
+  record AvroExample {
+    long id;
+    timestamp_ms timestamp;
+    string name;
+    union { null, string } description = null;
+    union { null, map<string> } attributes= null;
+  }
+}
