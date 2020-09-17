@@ -61,12 +61,17 @@ lazy val customScalacOptions = Seq(
   "-Ywarn-unused:locals", // Warn if a local definition is unused.
   "-Ywarn-unused:params", // Warn if a value parameter is unused.
   "-Ywarn-unused:patvars", // Warn if a variable bound in a pattern is unused.
-  // "-Ywarn-unused:privates", // Warn if a private member is unused.
+  "-Ywarn-unused:privates", // Warn if a private member is unused.
   "-Ywarn-value-discard", // Warn when non-Unit expression results are unused.
   "-Ybackend-parallelism",
   "8", // Enable paralellisation — change to desired number!
   "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins
-  "-Ycache-macro-class-loader:last-modified" // and macro definitions. This can lead to performance improvements.
+  "-Ycache-macro-class-loader:last-modified", // and macro definitions. This can lead to performance improvements.
+  //
+  // Scio
+  //
+  "-Ymacro-annotations", // Enable Scio BigQuery macros
+  "-Xmacro-settings:show-coder-fallback=true" // Enable missing Scio coder warning
 )
 
 lazy val customLibraryDependencies = Seq(

@@ -2,12 +2,12 @@
   {
     "mode": "REQUIRED",
     "name": "id",
-    "type": "INTEGER"
+    "type": "INT64"
   },
   {
     "mode": "REQUIRED",
     "name": "timestamp",
-    "type": "DATETIME"
+    "type": "TIMESTAMP"
   },
   {
     "mode": "REQUIRED",
@@ -34,6 +34,6 @@
     ],
     "mode": "REPEATED",
     "name": "attributes",
-    "type": "RECORD"
+    "type": "STRUCT"
   }
 ]
