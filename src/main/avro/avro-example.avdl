@@ -1,7 +1,7 @@
 @namespace("org.mkuthan.beam.examples")
 protocol AvroExampleInterface {
 
-  record AvroExample {
+  record AvroExampleRecord {
     long id;
     timestamp_ms timestamp;
     string name;
