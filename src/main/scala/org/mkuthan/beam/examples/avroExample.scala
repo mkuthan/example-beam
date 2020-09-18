@@ -8,35 +8,23 @@ import com.spotify.scio.bigquery._
 import com.spotify.scio.bigquery.types.BigQueryType
 import org.apache.avro.specific.SpecificRecord
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.Method
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult
 import org.apache.beam.sdk.transforms.PTransform
 import org.apache.beam.sdk.values.PCollection
 import org.joda.time.Instant
 
-object AvroExample {
+/**
+  * --project=playground-272019
+  * --tempLocation=gs://playground-272019-temp
+  * --table=playground-272019:beam_examples.avro_example
+  *
+  * bq rm playground-272019:beam_examples.avro_example
+  * bq mk playground-272019:beam_examples.avro_example src/main/resources/schema.json
+  *
+  */
+object AvroWriterExample {
 
-  @BigQueryType.toTable
-  case class Record(
-      id: Long,
-      timestamp: Instant,
-      name: String,
-      description: Option[String]
-      // Unsupported type: Map[String,String]
-      //attributes: Option[Map[String, String]]
-  )
-
-  /**
-    * Usage:
-    *
-    * --tempLocation=gs://playground-272019-temp
-    * --table=playground-272019:beam_examples.avro_example
-    *
-    * bq rm playground-272019:beam_examples.avro_example
-    * bq mk playground-272019:beam_examples.avro_example src/main/resources/schema.json
-    *
-    * @param cmdArgs
-    */
   def main(cmdArgs: Array[String]): Unit = {
     val (sc, args) = ContextAndArgs(cmdArgs)
 
@@ -59,7 +47,44 @@ object AvroExample {
           )
           .build()
       }
-    records.saveAsCustomOutput("Save Specific", bqWrite[AvroExampleRecord](table))
+    records.saveAsCustomOutput("Save Specific File Loads", bqWrite[AvroExampleRecord](table))
+
+    // Writing avro formatted data is only supported for FILE_LOADS, however the method was STREAMING_INSERT
+    // TODO: STREAMING_INSERTS with retrying
+
+    sc.run().waitUntilDone()
+    ()
+  }
+
+  private def bqWrite[T <: SpecificRecord: ClassTag](
+      table: String
+  ): PTransform[PCollection[T], WriteResult] =
+    BigQueryIO
+      .write[T]()
+      .to(table)
+      // TODO: handle unbounded SCollection (TriggeringFrequency, NumFileShards are required)
+      .withMethod(Method.FILE_LOADS)
+      .useAvroLogicalTypes()
+      .withAvroWriter(AvroFunctions.writer[T])
+      .withAvroSchemaFactory(AvroFunctions.schemaFactory[T])
+      .withCreateDisposition(CREATE_NEVER)
+      .withWriteDisposition(WRITE_TRUNCATE)
+}
+
+object AvroReaderExample {
+  @BigQueryType.toTable
+  case class Record(
+      id: Long,
+      timestamp: Instant,
+      name: String,
+      description: Option[String]
+      // attributes: Unsupported type: Map[String,String]
+  )
+
+  def main(cmdArgs: Array[String]): Unit = {
+    val (sc, args) = ContextAndArgs(cmdArgs)
+
+    val table = args.required("table")
 
     sc.typedBigQueryTable[Record](Table.Spec(table))
       .count
@@ -88,16 +113,4 @@ object AvroExample {
     sc.run().waitUntilDone()
     ()
   }
-
-  private def bqWrite[T <: SpecificRecord: ClassTag](
-      table: String
-  ): PTransform[PCollection[T], WriteResult] =
-    BigQueryIO
-      .write[T]()
-      .to(table)
-      .useAvroLogicalTypes()
-      .withAvroWriter(AvroFunctions.writer[T])
-      .withAvroSchemaFactory(AvroFunctions.schemaFactory[T])
-      .withCreateDisposition(Write.CreateDisposition.CREATE_NEVER)
-      .withWriteDisposition(Write.WriteDisposition.WRITE_TRUNCATE)
 }
