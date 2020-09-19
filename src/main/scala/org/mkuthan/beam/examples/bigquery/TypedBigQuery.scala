@@ -10,7 +10,7 @@ object TypedBigQuery {
     val (sc, args) = ContextAndArgs(DefaultArgs)
     val table = args.required("table")
 
-    val query = s"""
+    val query = s"""#standardsql
       SELECT id, timestamp, name, description, attributes
       FROM `$table`
       WHERE name LIKE '%9%'
