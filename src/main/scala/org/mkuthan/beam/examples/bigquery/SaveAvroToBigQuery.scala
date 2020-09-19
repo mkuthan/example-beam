@@ -6,17 +6,27 @@ import scala.reflect.ClassTag
 
 import com.spotify.scio.ContextAndArgs
 import com.spotify.scio.bigquery.CREATE_NEVER
-import com.spotify.scio.bigquery.WRITE_TRUNCATE
+import com.spotify.scio.bigquery.WRITE_APPEND
 import org.apache.avro.specific.SpecificRecord
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.Method
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition
+import org.apache.beam.sdk.io.gcp.bigquery.InsertRetryPolicy
 import org.apache.beam.sdk.io.gcp.bigquery.WriteResult
 import org.apache.beam.sdk.transforms.PTransform
 import org.apache.beam.sdk.values.PCollection
+import org.joda.time.Duration
 import org.joda.time.Instant
 import org.mkuthan.beam.examples.AvroExampleRecord
 
 object SaveAvroToBigQuery {
+
+  case class UnboundedFileLoadsParams(triggeringFrequency: Duration, numFileShards: Int)
+
+  case class UnboundedStreamingInsertParams(
+      failedInsertRetryPolicy: InsertRetryPolicy = InsertRetryPolicy.retryTransientErrors
+  )
+
   def main(@unused cmdArgs: Array[String]): Unit = {
     val (sc, args) = ContextAndArgs(DefaultArgs)
 
@@ -39,25 +49,50 @@ object SaveAvroToBigQuery {
           )
           .build()
       }
-    records.saveAsCustomOutput("Save Specific File Loads", bqWrite[AvroExampleRecord](table))
-
-    // Writing avro formatted data is only supported for FILE_LOADS, however the method was STREAMING_INSERT
-    // TODO: STREAMING_INSERTS with retrying
+    records.saveAsCustomOutput("Save using FILE_LOADS", bqWriteFileLoads[AvroExampleRecord](table))
+    records.saveAsCustomOutput("Save using STREAMING_INSERTS", bqWriteStreamingInsert[AvroExampleRecord](table))
 
     sc.run().waitUntilDone()
     ()
   }
-  private def bqWrite[T <: SpecificRecord: ClassTag](
-      table: String
-  ): PTransform[PCollection[T], WriteResult] =
-    BigQueryIO
+
+  private def bqWriteFileLoads[T <: SpecificRecord: ClassTag](
+      table: String,
+      writeDisposition: WriteDisposition = WRITE_APPEND,
+      unboundedParams: Option[UnboundedFileLoadsParams] = None
+  ): PTransform[PCollection[T], WriteResult] = {
+    val io = BigQueryIO
       .write[T]()
       .to(table)
-      // TODO: handle unbounded SCollection (TriggeringFrequency, NumFileShards are required)
       .withMethod(Method.FILE_LOADS)
       .useAvroLogicalTypes()
       .withAvroWriter(AvroFunctions.writer[T])
       .withAvroSchemaFactory(AvroFunctions.schemaFactory[T])
       .withCreateDisposition(CREATE_NEVER)
-      .withWriteDisposition(WRITE_TRUNCATE)
+      .withWriteDisposition(writeDisposition)
+      .optimizedWrites()
+
+    unboundedParams.fold(io) { up =>
+      io.withTriggeringFrequency(up.triggeringFrequency)
+        .withNumFileShards(up.numFileShards)
+    }
+  }
+
+  private def bqWriteStreamingInsert[T <: SpecificRecord: ClassTag](
+      table: String,
+      writeDisposition: WriteDisposition = WRITE_APPEND,
+      unboundedParams: Option[UnboundedStreamingInsertParams] = None
+  ): PTransform[PCollection[T], WriteResult] = {
+    val io = BigQueryIO
+      .write[T]()
+      .to(table)
+      .withMethod(Method.STREAMING_INSERTS)
+      .withExtendedErrorInfo()
+      .withFormatFunction(AvroFunctions.formatFunction)
+      .withCreateDisposition(CREATE_NEVER)
+      .withWriteDisposition(writeDisposition)
+      .optimizedWrites()
+
+    unboundedParams.fold(io) { up => io.withFailedInsertRetryPolicy(up.failedInsertRetryPolicy) }
+  }
 }
