@@ -1,4 +1,4 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.bigquery
 
 import scala.annotation.unused
 import scala.reflect.ClassTag

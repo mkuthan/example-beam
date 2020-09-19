@@ -1,4 +1,4 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import java.util.Collection
 

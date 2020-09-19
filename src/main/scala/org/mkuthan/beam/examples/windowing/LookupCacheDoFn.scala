@@ -1,4 +1,4 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import scala.annotation.unused
 import scala.jdk.CollectionConverters._
@@ -28,7 +28,7 @@ import org.apache.beam.sdk.transforms.windowing.BoundedWindow
 import org.apache.beam.sdk.values.KV
 import org.joda.time.Duration
 import org.joda.time.Instant
-import org.mkuthan.beam.examples.LookupCacheDoFn.LookupCacheDoFnType
+import org.mkuthan.beam.examples.windowing.LookupCacheDoFn.LookupCacheDoFnType
 
 object LookupCacheDoFn {
   type InputType[K, V, Lookup] = KV[K, (Iterable[V], Iterable[Lookup])]

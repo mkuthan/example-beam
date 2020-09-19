@@ -1,4 +1,4 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import com.spotify.scio.values.SCollection
 import com.spotify.scio.values.WindowOptions

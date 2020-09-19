@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.testing._
-import org.mkuthan.beam.TimestampedMatchers
+import org.mkuthan.beam.examples.TimestampedMatchers
 
-class ScreenGlobalWindowWithSideInputEnricherTest extends PipelineSpec with TimestampedMatchers with ModelFixtures {
+class ScreenGlobalWindowWithLookupCacheEnricherTest extends PipelineSpec with TimestampedMatchers with ModelFixtures {
 
-  import ScreenGlobalWindowWithSideInputEnricher.enrichByPublication
-  import org.mkuthan.beam.TestImplicits._
+  import org.mkuthan.beam.examples.TestImplicits._
+  import org.mkuthan.beam.examples.windowing.ScreenGlobalWindowWithLookupCacheEnricher.enrichByPublication
 
-  "Screen" should "be enriched by publication" in runWithContext { sc =>
+  "Screen" should "be enriched by cached publication" in runWithContext { sc =>
     val screens = testStreamOf[Screen]
       .advanceWatermarkTo("13:00:00") // ensure that publication has been seen
       .addElementsAtTime("13:00:00", anyScreen)
@@ -41,8 +41,7 @@ class ScreenGlobalWindowWithSideInputEnricherTest extends PipelineSpec with Time
     dlq should beEmpty
   }
 
-  // TODO: why late screen is enriched by publication?
-  "Late screen" should "not be enriched by publication but it was, WTF???" in runWithContext { sc =>
+  "Late screen" should "be enriched by cached publication" in runWithContext { sc =>
     val screens = testStreamOf[Screen]
       .addElementsAtTime("11:59:59", anyScreen)
       .advanceWatermarkToInfinity()
@@ -54,12 +53,65 @@ class ScreenGlobalWindowWithSideInputEnricherTest extends PipelineSpec with Time
 
     val (enriched, dlq) = enrichByPublication(sc.testStream(screens), sc.testStream(publications))
 
-    enriched.withTimestamp should containSingleValueAtTime("11:59:59", (anyScreen, anyPublication))
-    dlq.withTimestamp should beEmpty
+    // TODO: maybe it should be emitted with original screen timestamp instaed of latet seen timestamp?
+    enriched.withTimestamp should containSingleValueAtTime("12:00:00", (anyScreen, anyPublication))
+    dlq should beEmpty
   }
 
-  // TODO: why the second publication is not observed in SideInput when the screen is processed?
-  ignore should "be enriched by latest ordered publication" in runWithContext { sc =>
+  "Too late screen" should "not be enriched by cached publication" in runWithContext { sc =>
+    val screens = testStreamOf[Screen]
+      .addElementsAtTime("10:59:59", anyScreen)
+      .advanceWatermarkToInfinity()
+
+    val publications = testStreamOf[Publication]
+      .advanceWatermarkTo("12:00:00") // ensure that screen has been seen
+      .addElementsAtTime("12:00:00", anyPublication)
+      .advanceWatermarkToInfinity()
+
+    val (enriched, dlq) = enrichByPublication(sc.testStream(screens), sc.testStream(publications))
+
+    enriched should beEmpty
+    // TODO: maybe it should be emitted with latest seen timestamp instead of screen original timestamp?
+    dlq.withTimestamp should containSingleValueAtTime("10:59:59", anyScreen)
+  }
+
+  "Publication has expired, so screen" should "not be enriched" in runWithContext { sc =>
+    val screens = testStreamOf[Screen]
+      .advanceWatermarkTo("13:00:01") // ensure that publication has been expired
+      .addElementsAtTime("13:00:01", anyScreen)
+      .advanceWatermarkToInfinity()
+
+    val publications = testStreamOf[Publication]
+      .addElementsAtTime("12:00:00", anyPublication)
+      .advanceWatermarkToInfinity()
+
+    val (enriched, dlq) = enrichByPublication(sc.testStream(screens), sc.testStream(publications))
+
+    enriched should beEmpty
+    dlq.withTimestamp should containSingleValueAtTime("13:00:01", anyScreen)
+  }
+
+  // publications with the same timestamp are unordered (and modeled as Iterable passed to the ParDo)
+  ignore should "be enriched by last publication" in runWithContext { sc =>
+    val screens = testStreamOf[Screen]
+      .advanceWatermarkTo("13:00:00") // ensure that publication has been seen
+      .addElementsAtTime("13:00:00", anyScreen)
+      .advanceWatermarkToInfinity()
+
+    val firstPublication = anyPublication.copy(version = "first")
+    val secondPublication = anyPublication.copy(version = "second")
+
+    val publications = testStreamOf[Publication]
+      .addElementsAtTime("12:00:00", firstPublication, secondPublication)
+      .advanceWatermarkToInfinity()
+
+    val (enriched, dlq) = enrichByPublication(sc.testStream(screens), sc.testStream(publications))
+
+    enriched.withTimestamp should containSingleValueAtTime("13:00:00", (anyScreen, secondPublication))
+    dlq should beEmpty
+  }
+
+  "Screen" should "be enriched by latest ordered publication" in runWithContext { sc =>
     val screens = testStreamOf[Screen]
       .advanceWatermarkTo("13:00:00") // ensure that publication has been seen
       .addElementsAtTime("13:00:00", anyScreen)
@@ -79,8 +131,7 @@ class ScreenGlobalWindowWithSideInputEnricherTest extends PipelineSpec with Time
     dlq should beEmpty
   }
 
-  // TODO: why the second publication is not observed in SideInput when the screen is processed?
-  ignore should "be enriched by latest unordered publication" in runWithContext { sc =>
+  "Screen" should "be enriched by latest unordered publication" in runWithContext { sc =>
     val screens = testStreamOf[Screen]
       .advanceWatermarkTo("13:00:00") // ensure that publication has been seen
       .addElementsAtTime("13:00:00", anyScreen)
@@ -99,5 +150,4 @@ class ScreenGlobalWindowWithSideInputEnricherTest extends PipelineSpec with Time
     enriched.withTimestamp should containSingleValueAtTime("13:00:00", (anyScreen, secondPublication))
     dlq should beEmpty
   }
-
 }

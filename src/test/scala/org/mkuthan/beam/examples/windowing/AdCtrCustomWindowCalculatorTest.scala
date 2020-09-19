@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.testing._
 import org.joda.time.Duration
-import org.mkuthan.beam.TimestampedMatchers
+import org.mkuthan.beam.examples.TimestampedMatchers
 
 // TODO: Add inOnTimePane, inLatePane asserts, they do not work for custom window and I've not figured out why, yet.
 class AdCtrCustomWindowCalculatorTest extends PipelineSpec with TimestampedMatchers with ModelFixtures {
 
-  import AdCtrCustomWindowCalculator.calculateCtrByScreen
-  import org.mkuthan.beam.TestImplicits._
+  import org.mkuthan.beam.examples.TestImplicits._
+  import org.mkuthan.beam.examples.windowing.AdCtrCustomWindowCalculator.calculateCtrByScreen
 
   "Impression and then click on-time" should "give ctr 1.0" in runWithContext { sc =>
     val impressionTime = "12:00:00"

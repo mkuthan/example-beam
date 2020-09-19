@@ -1,4 +1,4 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import org.apache.beam.sdk.transforms.Combine.BinaryCombineFn
 import org.joda.time.Instant

@@ -1,11 +1,12 @@
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.bigquery
 
+import scala.annotation.unused
 import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 
 import com.spotify.scio.ContextAndArgs
-import com.spotify.scio.bigquery._
-import com.spotify.scio.bigquery.types.BigQueryType
+import com.spotify.scio.bigquery.CREATE_NEVER
+import com.spotify.scio.bigquery.WRITE_TRUNCATE
 import org.apache.avro.specific.SpecificRecord
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.Method
@@ -13,20 +14,11 @@ import org.apache.beam.sdk.io.gcp.bigquery.WriteResult
 import org.apache.beam.sdk.transforms.PTransform
 import org.apache.beam.sdk.values.PCollection
 import org.joda.time.Instant
+import org.mkuthan.beam.examples.AvroExampleRecord
 
-/**
-  * --project=playground-272019
-  * --tempLocation=gs://playground-272019-temp
-  * --table=playground-272019:beam_examples.avro_example
-  *
-  * bq rm playground-272019:beam_examples.avro_example
-  * bq mk playground-272019:beam_examples.avro_example src/main/resources/schema.json
-  *
-  */
-object AvroWriterExample {
-
-  def main(cmdArgs: Array[String]): Unit = {
-    val (sc, args) = ContextAndArgs(cmdArgs)
+object SaveAvroToBigQuery {
+  def main(@unused cmdArgs: Array[String]): Unit = {
+    val (sc, args) = ContextAndArgs(DefaultArgs)
 
     val table = args.required("table")
 
@@ -41,8 +33,8 @@ object AvroWriterExample {
           .setDescription(s"some description $i")
           .setAttributes(
             Map(
-              s"key $i A" -> s"value $i A",
-              s"key $i B" -> s"value $i B"
+              s"key 1" -> s"value $i",
+              s"key 2" -> s"value $i"
             ).asJava
           )
           .build()
@@ -55,7 +47,6 @@ object AvroWriterExample {
     sc.run().waitUntilDone()
     ()
   }
-
   private def bqWrite[T <: SpecificRecord: ClassTag](
       table: String
   ): PTransform[PCollection[T], WriteResult] =
@@ -69,48 +60,4 @@ object AvroWriterExample {
       .withAvroSchemaFactory(AvroFunctions.schemaFactory[T])
       .withCreateDisposition(CREATE_NEVER)
       .withWriteDisposition(WRITE_TRUNCATE)
-}
-
-object AvroReaderExample {
-  @BigQueryType.toTable
-  case class Record(
-      id: Long,
-      timestamp: Instant,
-      name: String,
-      description: Option[String]
-      // attributes: Unsupported type: Map[String,String]
-  )
-
-  def main(cmdArgs: Array[String]): Unit = {
-    val (sc, args) = ContextAndArgs(cmdArgs)
-
-    val table = args.required("table")
-
-    sc.typedBigQueryTable[Record](Table.Spec(table))
-      .count
-      .debug(prefix = "Table: ")
-
-    sc.typedBigQueryStorage[Record](Table.Spec(table))
-      .count
-      .debug(prefix = "Table (via Storage API): ")
-
-    val query = s"""
-      SELECT id, timestamp, name, description 
-      FROM `$table` 
-      WHERE name LIKE '%9%'
-      """.stripMargin
-
-    sc.typedBigQuery[Record](Query(query.replace(":", ".")))
-      .count
-      .debug(prefix = "Query: ")
-
-    val rowRestriction = "name LIKE '%9%'"
-
-    sc.typedBigQueryStorage[Record](Table.Spec(table), rowRestriction)
-      .count
-      .debug(prefix = "Query (via Storage API): ")
-
-    sc.run().waitUntilDone()
-    ()
-  }
 }

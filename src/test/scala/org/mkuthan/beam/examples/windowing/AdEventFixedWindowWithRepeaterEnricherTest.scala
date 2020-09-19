@@ -14,16 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package org.mkuthan.beam.examples
+package org.mkuthan.beam.examples.windowing
 
 import com.spotify.scio.testing.PipelineSpec
 import com.spotify.scio.testing._
-import org.mkuthan.beam.TimestampedMatchers
+import org.mkuthan.beam.examples.TimestampedMatchers
 
 class AdEventFixedWindowWithRepeaterEnricherTest extends PipelineSpec with TimestampedMatchers with ModelFixtures {
 
-  import AdEventFixedWindowWithRepeaterEnricher.enrichByScreen
-  import org.mkuthan.beam.TestImplicits._
+  import org.mkuthan.beam.examples.TestImplicits._
+  import org.mkuthan.beam.examples.windowing.AdEventFixedWindowWithRepeaterEnricher.enrichByScreen
 
   val beginOfWindow = "12:00:00"
   val endOfWindow = "12:10:00"

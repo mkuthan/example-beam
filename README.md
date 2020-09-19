@@ -15,8 +15,8 @@ It also shows many limitations which makes the fixed window not suitable for man
 Advertisement impressions and clicks grouped in the fixed window to calculate CTR (Click Through Rate) per screen.
 Please look at source code for more details:
 
-* [AdCtrFixedWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrFixedWindowCalculator.scala)
-* [AdCtrFixedWindowCalculatorTest](src/test/scala/org/mkuthan/example/beam/AdCtrFixedWindowCalculatorTest.scala)
+* [AdCtrFixedWindowCalculator](src/main/scala/org/mkuthan/beam/examples/windowing/AdCtrFixedWindowCalculator.scala)
+* [AdCtrFixedWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/windowing/AdCtrFixedWindowCalculatorTest.scala)
 
 ### Pros
 
@@ -47,8 +47,8 @@ and it is appropriate only for the moving average metrics (moving CTRs are total
 CTRs from different screens grouped in the sliding window to calculate CTR moving average.
 Please look at source code for more details:
 
-* [AdCtrSlidingWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrSlidingWindowCalculator.scala)
-* [AdCtrSlidingWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/AdCtrSlidingWindowCalculatorTest.scala)
+* [AdCtrSlidingWindowCalculator](src/main/scala/org/mkuthan/beam/examples/windowing/AdCtrSlidingWindowCalculator.scala)
+* [AdCtrSlidingWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/windowing/AdCtrSlidingWindowCalculatorTest.scala)
 
 ### Pros
 * Built-in Beam support for the sliding window, well-documented, with many examples.
@@ -72,8 +72,8 @@ The most complex grouping example using custom window. Be aware: dragons are the
 Advertisement impressions and clicks grouped in the custom window to calculate CTR (Click Through Rate) per Screen.
 Please look at source code for more details:
 
-* [AdCtrCustomWindowCalculator](src/main/scala/org/mkuthan/beam/examples/AdCtrCustomWindowCalculator.scala)
-* [AdCtrCustomWindowCalculatorTest](src/test/scala/org/mkuthan/example/beam/AdCtrCustomWindowCalculatorTest.scala)
+* [AdCtrCustomWindowCalculator](src/main/scala/org/mkuthan/beam/examples/windowing/AdCtrCustomWindowCalculator.scala)
+* [AdCtrCustomWindowCalculatorTest](src/test/scala/org/mkuthan/beam/examples/windowing/AdCtrCustomWindowCalculatorTest.scala)
 
 ### Pros
 
@@ -86,7 +86,7 @@ Please look at source code for more details:
 
 * Lack of documentation. The best reference I found is [Streaming Systems](http://streamingsystems.net) book, see "Custom Windowing" section.
 * Non-trivial implementation (e.g. it's quite easy to turn back event time and mislead runner watermark handling).
-See [AdEventWindow](src/main/scala/org/mkuthan/beam/examples/AdEventWindow.scala) 
+See [AdEventWindow](src/main/scala/org/mkuthan/beam/examples/windowing/AdEventWindow.scala) 
 and [AdEventWindowFn](src/main/scala/org/mkuthan/beam/examples/AdEventWindowFn.scala).
 * The custom window code seems to be hard to reuse, it's crafted for the specific scenario.
 * The risk that custom window will not be fully supported by all runners.
@@ -107,8 +107,8 @@ Fortunately there is Beam built-in workaround to join incompatible windows - Sid
 Screen events enriched by publication in the global window, Publication events are broadcasted as IterableSideInput:
 Please look at source code for more details:
 
-* [ScreenGlobalWindowWithSideInputEnricher](src/main/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithSideInputEnricher.scala)
-* [ScreenGlobalWindowWithSideInputEnricherTest](src/test/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithSideInputEnricherTest.scala)
+* [ScreenGlobalWindowWithSideInputEnricher](src/main/scala/org/mkuthan/beam/examples/windowing/ScreenGlobalWindowWithSideInputEnricher.scala)
+* [ScreenGlobalWindowWithSideInputEnricherTest](src/test/scala/org/mkuthan/beam/examples/windowing/ScreenGlobalWindowWithSideInputEnricherTest.scala)
 
 ### Pros
 
@@ -137,8 +137,8 @@ the right side of the join might be repeated to simulate longer window than left
 Advertisement events enriched by screen event in the fixed window, screen events are repeated to simulate longer window on the right side of the join.
 Please look at source code for more details:
 
-* [AdEventFixedWindowWithRepeaterEnricher](src/main/scala/org/mkuthan/beam/examples/AdEventFixedWindowWithRepeaterEnricher.scala)
-* [AdEventFixedWindowWithRepeaterEnricherTest](src/test/scala/org/mkuthan/beam/examples/AdEventFixedWindowWithRepeaterEnricherTest.scala)
+* [AdEventFixedWindowWithRepeaterEnricher](src/main/scala/org/mkuthan/beam/examples/windowing/AdEventFixedWindowWithRepeaterEnricher.scala)
+* [AdEventFixedWindowWithRepeaterEnricherTest](src/test/scala/org/mkuthan/beam/examples/windowing/AdEventFixedWindowWithRepeaterEnricherTest.scala)
 
 ### Pros
 
@@ -172,8 +172,8 @@ Screen events enriched by publication event in the global window,
 publication events are cached and then expired to simulate the finite window:
 Please look at source code for more details:
 
-* [ScreenGlobalWindowWithLookupCacheEnricher](src/main/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithLookupCacheEnricher.scala)
-* [ScreenGlobalWindowWithLookupCacheEnricherTest](src/test/scala/org/mkuthan/beam/examples/ScreenGlobalWindowWithLookupCacheEnricherTest.scala)
+* [ScreenGlobalWindowWithLookupCacheEnricher](src/main/scala/org/mkuthan/beam/examples/windowing/ScreenGlobalWindowWithLookupCacheEnricher.scala)
+* [ScreenGlobalWindowWithLookupCacheEnricherTest](src/test/scala/org/mkuthan/beam/examples/windowing/ScreenGlobalWindowWithLookupCacheEnricherTest.scala)
 
 ### Pros
 
