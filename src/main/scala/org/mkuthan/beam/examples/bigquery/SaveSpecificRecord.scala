@@ -19,7 +19,7 @@ import org.joda.time.Duration
 import org.joda.time.Instant
 import org.mkuthan.beam.examples.AvroExampleRecord
 
-object SaveAvroToBigQuery {
+object SaveSpecificRecord {
 
   case class UnboundedFileLoadsParams(triggeringFrequency: Duration, numFileShards: Int)
 
