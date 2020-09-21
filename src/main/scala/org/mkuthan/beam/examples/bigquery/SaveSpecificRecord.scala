@@ -88,7 +88,7 @@ object SaveSpecificRecord {
       .to(table)
       .withMethod(Method.STREAMING_INSERTS)
       .withExtendedErrorInfo()
-      .withFormatFunction(AvroFunctions.formatFunction)
+      .withFormatFunction(AvroFunctions.formatFunction) // STREAMING_INSERTS doesn't support Avro writer
       .withCreateDisposition(CREATE_NEVER)
       .withWriteDisposition(writeDisposition)
       .optimizedWrites()

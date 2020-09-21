@@ -191,3 +191,52 @@ Only the latest element on the right side of the join (publication) is used, ear
 * The cache for the left side of the join (screen events for late publications) is unlimited.
 It should be easy to limit the cache size, but with what kind of eviction policy (FIFO)?
 * I'm sure, it's not the end of the list ...
+
+## Save Specific Record to BigQuery
+
+Example with saving Avro Specific record directly to BigQuery without intermediate and inefficient 
+[TableRow](https://developers.google.com/resources/api-libraries/documentation/bigquery/v2/java/latest/index.html?com/google/api/services/bigquery/model/TableRow.html).
+
+* [SaveSpecificRecord](src/main/scala/org/mkuthan/beam/examples/bigquery/SaveSpecificRecord.scala)
+
+### Pros
+
+* The most efficient method for saving data to BigQuery (Avro instead of TableRow for FILE_LOADS)
+* Domain model defined by Avro Schema (with logical types)
+* Type-safe bindings with SpecificRecord
+
+### Cons
+
+* Use Scio saveAsCustomOutput due to lack of Scio API 
+
+## Save Scio BigQueryType to BigQuery
+
+Example with saving Scio BigQueryType to BigQuery without intermediate and inefficient 
+[TableRow](https://developers.google.com/resources/api-libraries/documentation/bigquery/v2/java/latest/index.html?com/google/api/services/bigquery/model/TableRow.html).
+
+* [SaveTypedBigQuery](src/main/scala/org/mkuthan/beam/examples/bigquery/SaveTypedBigQuery.scala)
+
+### Pros
+
+* The most efficient method for saving data to BigQuery (Avro instead of TableRow for FILE_LOADS)
+* Domain model defined by Scio BigQueryType
+
+### Cons
+
+* Write method (FILE_LOADS vs. STREAMING_INSERT) depends on collection type (Bounded vs. Unbounded)
+* Intermediate conversion into GenericRecord
+
+## Read from BigQuery using Google API library
+
+Example with reading from BigQuery using Avro without intermediate and inefficient 
+[TableRow](https://developers.google.com/resources/api-libraries/documentation/bigquery/v2/java/latest/index.html?com/google/api/services/bigquery/model/TableRow.html).
+
+* [TypedBigQuery](src/main/scala/org/mkuthan/beam/examples/bigquery/TypedBigQuery.scala)
+* [TypedBigQueryTable](src/main/scala/org/mkuthan/beam/examples/bigquery/TypedBigQueryTable.scala)
+
+## Read from BigQuery using Google Cloud library (Storage API)
+
+Example with reading from BigQuery using bleeding edge BigQuery Storage API.
+
+* [TypedBigQueryStorage](src/main/scala/org/mkuthan/beam/examples/bigquery/TypedBigQueryStorage.scala)
+* [TypedBigQueryStorageTable](src/main/scala/org/mkuthan/beam/examples/bigquery/TypedBigQueryStorageTable.scala)
