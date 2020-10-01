@@ -4,9 +4,15 @@ import scala.annotation.unused
 
 import com.google.cloud.bigquery.BigQuery
 import com.google.cloud.bigquery.BigQueryOptions
+import com.google.cloud.bigquery.ExtractJobConfiguration
+import com.google.cloud.bigquery.JobInfo
 import com.google.cloud.bigquery.QueryJobConfiguration
 import com.google.cloud.bigquery.TableId
 import com.spotify.scio.ContextAndArgs
+import com.spotify.scio.bigquery.BigQueryType
+import org.apache.avro.generic.GenericRecord
+import org.apache.beam.sdk.io.AvroIO
+import org.apache.beam.sdk.io.FileIO
 import org.apache.beam.sdk.transforms.DoFn
 import org.apache.beam.sdk.transforms.DoFn.Element
 import org.apache.beam.sdk.transforms.DoFn.OutputReceiver
@@ -14,6 +20,8 @@ import org.apache.beam.sdk.transforms.DoFn.ProcessElement
 import org.apache.beam.sdk.transforms.DoFn.Setup
 import org.apache.beam.sdk.transforms.ParDo
 import org.apache.beam.sdk.transforms.PeriodicImpulse
+import org.apache.beam.sdk.transforms.SerializableFunction
+import org.apache.beam.sdk.transforms.Watch
 import org.joda.time.Duration
 import org.joda.time.Instant
 
@@ -23,9 +31,11 @@ object PeriodicQuery {
 
     val table = args.required("table")
 
-    val destinationDataset = "beam_examples"
-    val destinationTable = "tmp_table"
-    val destinationUri = "gs://playground-272019-temp/export"
+    val tmpProject = "playground-272019"
+    val tmpDataset = "beam_examples"
+    val tmpTable = "tmp_table"
+
+    val tmpGcsUri = "gs://playground-272019-temp/export/export-*.avro"
 
     val query = s"""
       SELECT id, timestamp, name, description, attributes
@@ -40,33 +50,62 @@ object PeriodicQuery {
     val exports = sc
       .customInput("PeriodicImpulse", periodicImpulse)
       .applyTransform(
-        ParDo.of(new BigQueryExport(destinationDataset, destinationTable, destinationUri, query.replace(":", ".")))
+        ParDo.of(new BigQueryExport(tmpProject, tmpDataset, tmpTable, tmpGcsUri, query.replace(":", ".")))
       )
-    exports.debug()
+    exports.debug(prefix = "Export: ")
+
+    val reader = FileIO
+      .`match`()
+      .filepattern(tmpGcsUri)
+      .continuously(Duration.standardMinutes(1), Watch.Growth.never())
+
+    val parseGenericRecord = new SerializableFunction[GenericRecord, BigQueryRecord.Record] {
+      override def apply(input: GenericRecord): BigQueryRecord.Record =
+        BigQueryType.fromAvro[BigQueryRecord.Record](input)
+    }
+
+    val load = sc
+      .customInput("Watch for new Files", reader)
+      .applyTransform("Read watched File", FileIO.readMatches())
+      .applyTransform("Foo", AvroIO.parseFilesGenericRecords(parseGenericRecord))
+    load.debug(prefix = "Load: ")
 
     sc.run()
     ()
   }
 
   class BigQueryExport(
-      val destinationDataset: String,
-      val destinationTable: String,
-      val destinationUri: String,
+      val tmpProject: String,
+      val tmpDataset: String,
+      val tmpTable: String,
+      val tmpGcsUri: String,
       val query: String
   ) extends DoFn[Instant, String] {
 
-    val destinationTableId: TableId = TableId.of(destinationDataset, destinationTable)
+    val tmpTableId: TableId = TableId.of(tmpProject, tmpDataset, tmpTable)
 
     var bigQuery: BigQuery = _
+
     var queryJobConfiguration: QueryJobConfiguration = _
+    var extractJobConfiguration: ExtractJobConfiguration = _
 
     @Setup
     def setup(): Unit = {
       bigQuery = BigQueryOptions.getDefaultInstance.getService
+
       queryJobConfiguration = QueryJobConfiguration
         .newBuilder(query)
-        .setDestinationTable(destinationTableId)
+        .setDestinationTable(tmpTableId)
+        .setCreateDisposition(JobInfo.CreateDisposition.CREATE_IF_NEEDED)
+        .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
         .build
+
+      extractJobConfiguration = ExtractJobConfiguration
+        .newBuilder(tmpTableId, tmpGcsUri)
+        .setCompression("SNAPPY")
+        .setFormat("AVRO")
+        .setUseAvroLogicalTypes(true)
+        .build();
     }
 
     @ProcessElement
@@ -75,15 +114,14 @@ object PeriodicQuery {
         receiver: OutputReceiver[String]
     ): Unit = {
       // query to BQ temporary table
-      bigQuery.query(queryJobConfiguration)
+      val queryJob = bigQuery.create(JobInfo.of(queryJobConfiguration))
+      val completedQueryJob = queryJob.waitFor()
+      println(completedQueryJob)
 
-      // extract from BQ table to GCS
-      val table = bigQuery.getTable(destinationTableId)
-      val extractJob = table.extract("AVRO", destinationUri)
-      extractJob.waitFor()
-
-      // delete BQ temporary table
-      table.delete()
+      // extract BQ temporary table to GCS
+      val extractJob = bigQuery.create(JobInfo.of(extractJobConfiguration))
+      val completedExtractJob = extractJob.waitFor()
+      println(completedExtractJob)
 
       receiver.output("FOO: " + element.toString)
     }
